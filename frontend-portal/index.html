@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeroClaw - App Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: {
+                            850: '#1f2937',
+                            900: '#111827',
+                            950: '#0b0f19',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.6); }
+        }
+        .pulse-glow {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fade-in 0.5s ease-out forwards;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-16 max-w-6xl">
+        <!-- Header -->
+        <header class="text-center mb-16 fade-in">
+            <div class="inline-flex items-center justify-center mb-6">
+                <svg class="w-16 h-16 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <h1 class="text-5xl font-bold mb-4 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                ZeroClaw
+            </h1>
+            <p class="text-gray-400 text-lg">Hybrid RAM+Cloud Concurrency Swarm</p>
+        </header>
+
+        <!-- Main Dashboard Button -->
+        <div class="flex justify-center mb-16 fade-in" style="animation-delay: 0.1s;">
+            <a href="https://dash.karndt.pl"
+               class="pulse-glow group relative inline-flex items-center gap-3 px-12 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl font-semibold text-lg hover:from-indigo-500 hover:to-purple-500 transition-all duration-300">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                </svg>
+                <span>ZeroClaw Dashboard</span>
+                <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Apps Grid -->
+        <div id="apps-container" class="hidden">
+            <h2 class="text-2xl font-bold text-center mb-8 text-gray-300 fade-in" style="animation-delay: 0.2s;">
+                Applications
+            </h2>
+            <div id="apps-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Apps will be dynamically loaded here -->
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="mt-16 bg-gray-900/50 rounded-2xl p-8 border border-gray-800 fade-in" style="animation-delay: 0.3s;">
+            <h3 class="text-xl font-bold mb-6 text-gray-200">System Status</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-400 mb-1">Active</div>
+                    <div class="text-sm text-gray-400">Cloudflare Tunnel</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-indigo-400 mb-1">10</div>
+                    <div class="text-sm text-gray-400">Concurrency Slots</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-400 mb-1">32GB</div>
+                    <div class="text-sm text-gray-400">System RAM</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-pink-400 mb-1">Local</div>
+                    <div class="text-sm text-gray-400">Ollama LLM</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Z.AI Plan Health Widget -->
+        <div class="mt-12 fade-in" style="animation-delay: 0.3s;">
+            <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800 card-hover">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span class="text-2xl">⚡</span>
+                        Z.AI Plan Health
+                    </h2>
+                    <div id="zai-status-badge" class="px-3 py-1 rounded-full text-sm font-semibold bg-gray-800 text-gray-400">
+                        Loading...
+                    </div>
+                </div>
+
+                <!-- Quota Progress Bar -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-400">Quota Usage</span>
+                        <span id="quota-percent" class="text-gray-400">--%</span>
+                    </div>
+                    <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden">
+                        <div id="quota-bar" class="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Status Details -->
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <div class="text-gray-500">Routing Mode</div>
+                        <div id="routing-mode" class="text-white font-semibold">--</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Reset In</div>
+                        <div id="reset-time" class="text-white font-semibold">--</div>
+                    </div>
+                </div>
+
+                <!-- Recommendation -->
+                <div class="mt-4 p-3 bg-gray-800 rounded-lg">
+                    <div class="flex items-start gap-2">
+                        <span class="text-blue-400">💡</span>
+                        <p id="recommendation" class="text-sm text-gray-300">Loading quota status...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-16 text-center text-gray-500 text-sm fade-in" style="animation-delay: 0.4s;">
+            <p>Powered by <span class="text-indigo-400">ZeroClaw</span> &middot;
+            <a href="https://karndt.pl" class="hover:text-indigo-400 transition-colors">karndt.pl</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // Load and render apps dynamically
+        async function loadApps() {
+            try {
+                const response = await fetch('/apps.json');
+                const apps = await response.json();
+
+                if (apps.length > 0) {
+                    const container = document.getElementById('apps-container');
+                    const grid = document.getElementById('apps-grid');
+                    container.classList.remove('hidden');
+
+                    apps.forEach((app, index) => {
+                        const card = createAppCard(app, index);
+                        grid.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.log('No additional apps configured');
+            }
+        }
+
+        function createAppCard(app, index) {
+            const card = document.createElement('a');
+            card.href = app.url;
+            card.className = 'card-hover bg-gray-900 border border-gray-800 rounded-xl p-6 block fade-in';
+            card.style.animationDelay = `${0.3 + (index * 0.1)}s`;
+
+            const icon = app.icon || '📦';
+            const color = app.color || 'indigo';
+
+            card.innerHTML = `
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="w-12 h-12 rounded-lg bg-${color}-500/20 flex items-center justify-center text-2xl">
+                        ${icon}
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-200">${app.name}</h3>
+                </div>
+                <p class="text-gray-400 text-sm mb-4">${app.description}</p>
+                <div class="flex items-center text-${color}-400 text-sm font-medium">
+                    <span>Launch</span>
+                    <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // Load Z.AI quota status
+        async function loadZAIStatus() {
+            try {
+                const response = await fetch('/api-system-status.json');
+                const data = await response.json();
+
+                // Update status badge
+                const statusBadge = document.getElementById('zai-status-badge');
+                const statusClass = data.status === 'GREEN' ? 'bg-green-900 text-green-300' :
+                                   data.status === 'YELLOW' ? 'bg-yellow-900 text-yellow-300' :
+                                   'bg-red-900 text-red-300';
+                statusBadge.className = `px-3 py-1 rounded-full text-sm font-semibold ${statusClass}`;
+                statusBadge.textContent = data.status;
+
+                // Update quota bar
+                const quotaBar = document.getElementById('quota-bar');
+                const quotaPercent = document.getElementById('quota-percent');
+                quotaBar.style.width = `${data.quota_used_percent}%`;
+                quotaPercent.textContent = `${data.quota_used_percent}%`;
+
+                // Update bar color based on status
+                if (data.status === 'GREEN') {
+                    quotaBar.className = 'h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500';
+                } else if (data.status === 'YELLOW') {
+                    quotaBar.className = 'h-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all duration-500';
+                } else {
+                    quotaBar.className = 'h-full bg-gradient-to-r from-red-500 to-pink-500 transition-all duration-500';
+                }
+
+                // Update routing mode
+                document.getElementById('routing-mode').textContent = data.routing_mode;
+
+                // Update reset time
+                const resetMins = data.reset_in_mins;
+                const resetHours = Math.floor(resetMins / 60);
+                const resetMinsRemainder = resetMins % 60;
+                document.getElementById('reset-time').textContent =
+                    resetHours > 0 ? `${resetHours}h ${resetMinsRemainder}m` : `${resetMins}m`;
+
+                // Update recommendation
+                document.getElementById('recommendation').textContent = data.recommendation;
+
+            } catch (error) {
+                console.error('Failed to load Z.AI status:', error);
+                document.getElementById('zai-status-badge').className = 'px-3 py-1 rounded-full text-sm font-semibold bg-gray-800 text-gray-400';
+                document.getElementById('zai-status-badge').textContent = 'Unavailable';
+            }
+        }
+
+        // Initialize
+        loadApps();
+        loadZAIStatus();
+    </script>
+</body>
+</html>

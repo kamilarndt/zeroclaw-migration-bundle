@@ -1,0 +1,130 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - img [ref=e6]
+      - generic [ref=e10]: Online
+    - complementary [ref=e11]:
+      - navigation "Main navigation" [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]:
+            - generic [ref=e15]:
+              - heading "ZeroClaw" [level=1] [ref=e16]
+              - paragraph [ref=e17]: Dashboard
+            - button "Collapse sidebar" [expanded] [ref=e18] [cursor=pointer]:
+              - img [ref=e19]
+          - menu "Main menu" [ref=e21]:
+            - list [ref=e22]:
+              - menuitem "Dashboard" [ref=e23] [cursor=pointer]:
+                - img [ref=e24]
+                - generic [ref=e29]: Dashboard
+              - menuitem "Tasks" [ref=e30] [cursor=pointer]:
+                - img [ref=e31]
+                - generic [ref=e34]: Tasks
+              - menuitem "Hands" [ref=e35] [cursor=pointer]:
+                - img [ref=e36]
+                - generic [ref=e41]: Hands
+              - menuitem "Memory" [ref=e42] [cursor=pointer]:
+                - img [ref=e43]
+                - generic [ref=e47]: Memory
+              - menuitem "SOPs" [ref=e48] [cursor=pointer]:
+                - img [ref=e49]
+                - generic [ref=e51]: SOPs
+              - menuitem "Config" [ref=e52] [cursor=pointer]:
+                - img [ref=e53]
+                - generic [ref=e56]: Config
+              - menuitem "Chat" [ref=e57] [cursor=pointer]:
+                - img [ref=e58]
+                - generic [ref=e60]: Chat
+          - generic [ref=e62]:
+            - paragraph [ref=e63]: ZeroClaw Dashboard
+            - paragraph [ref=e64]: v1.0.0
+    - main [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - heading "Agent Chat" [level=1] [ref=e69]
+            - generic [ref=e70]: "Backend Status: CONNECTED"
+          - button "New Chat" [ref=e71] [cursor=pointer]
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - generic [ref=e75]:
+                - heading "Available Agents" [level=2] [ref=e76]
+                - button "Add Agent" [ref=e77] [cursor=pointer]:
+                  - img [ref=e78]
+              - paragraph [ref=e79]: Drag agents to the chat zone
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - generic [ref=e82]:
+                  - img [ref=e83]
+                  - generic [ref=e90]:
+                    - generic [ref=e91]: Coder
+                    - generic [ref=e92]: Developer
+                - paragraph [ref=e93]: Code generation and modification
+              - generic [ref=e94]:
+                - generic [ref=e95]:
+                  - img [ref=e96]
+                  - generic [ref=e103]:
+                    - generic [ref=e104]: Researcher
+                    - generic [ref=e105]: Analyst
+                - paragraph [ref=e106]: Information gathering and analysis
+              - generic [ref=e107]:
+                - generic [ref=e108]:
+                  - img [ref=e109]
+                  - generic [ref=e116]:
+                    - generic [ref=e117]: Tester
+                    - generic [ref=e118]: QA
+                - paragraph [ref=e119]: Test creation and execution
+              - generic [ref=e120]:
+                - generic [ref=e121]:
+                  - img [ref=e122]
+                  - generic [ref=e129]:
+                    - generic [ref=e130]: Planner
+                    - generic [ref=e131]: Manager
+                - paragraph [ref=e132]: Project planning and task breakdown
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - generic [ref=e136]:
+                - generic [ref=e137]:
+                  - generic [ref=e138]: ZeroClaw
+                  - paragraph [ref=e139]: Hello! I am ZeroClaw, your AI assistant. How can I help you today?
+                - generic [ref=e140]: less than a minute ago
+              - generic [ref=e142]:
+                - paragraph [ref=e144]: My name is Alice and I love learning about space exploration.
+                - generic [ref=e145]: less than a minute ago
+              - generic [ref=e147]:
+                - generic [ref=e148]:
+                  - generic [ref=e149]: ZeroClaw
+                  - paragraph [ref=e150]: Hey Alice, nice to meet you! I'm ZeroClaw. Space exploration is such a fascinating topic - there's always something new happening with Mars missions, telescopes discovering distant galaxies, or the latest developments in rocket technology. What aspect of space exploration interests you most?
+                - generic [ref=e151]: less than a minute ago
+            - generic [ref=e153]:
+              - button [ref=e154] [cursor=pointer]:
+                - img [ref=e155]
+              - button [ref=e157] [cursor=pointer]:
+                - img [ref=e158]
+              - textbox "Type a message..." [ref=e161]
+              - button [disabled] [ref=e162]:
+                - img [ref=e163]
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - heading "Task Suggestions" [level=2] [ref=e168]
+              - paragraph [ref=e169]: Extracted from conversation
+            - generic [ref=e171]:
+              - paragraph [ref=e172]: Send a message to generate
+              - paragraph [ref=e173]: task suggestions
+        - button [ref=e174] [cursor=pointer]:
+          - img [ref=e175]
+      - status [ref=e177]
+    - complementary [ref=e178]:
+      - generic [ref=e179]:
+        - heading "Details" [level=3]
+        - paragraph: Right panel content
+  - generic [ref=e180]:
+    - img [ref=e181]
+    - generic [ref=e185]:
+      - text: Online
+      - generic [ref=e186]: 43ms
+```

@@ -1,0 +1,1 @@
+/home/commander/docs/AGENTS.md

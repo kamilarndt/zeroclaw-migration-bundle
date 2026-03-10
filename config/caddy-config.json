@@ -1,0 +1,123 @@
+{
+    "apps": {
+        "http": {
+            "servers": {
+                "srv0": {
+                    "listen": [":80"],
+                    "routes": [
+                        {
+                            "match": [{"host": ["karndt.pl"]}],
+                            "handle": [{
+                                "handler": "subroute",
+                                "routes": [
+                                    {
+                                        "match": [{"path": ["/api/*"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}],
+                                            "headers": {
+                                                "request": {
+                                                    "set": {"Host": ["127.0.0.1:42617"]},
+                                                    "delete": ["CF-Connecting-IP", "CF-Ray", "X-Forwarded-For", "X-Real-IP", "True-Client-IP", "CF-IPCountry", "CF-Visitor", "CF-EW-Via", "Sec-Fetch-Site", "Sec-Fetch-Mode", "Sec-Fetch-Dest", "Sec-Fetch-User", "Sec-CH-UA", "Sec-CH-UA-Mobile", "Sec-CH-UA-Platform", "DNT", "User-Agent"]
+                                                }
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        "match": [{"path": ["/ws/*"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}]
+                                        }]
+                                    },
+                                    {
+                                        "match": [{"path": ["/pair"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}],
+                                            "headers": {
+                                                "request": {
+                                                    "set": {"Host": ["127.0.0.1:42617"]},
+                                                    "delete": ["CF-Connecting-IP", "CF-Ray", "X-Forwarded-For", "X-Real-IP", "True-Client-IP", "CF-IPCountry", "CF-Visitor", "CF-EW-Via", "Sec-Fetch-Site", "Sec-Fetch-Mode", "Sec-Fetch-Dest", "Sec-Fetch-User", "Sec-CH-UA", "Sec-CH-UA-Mobile", "Sec-CH-UA-Platform", "DNT", "User-Agent"]
+                                                }
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        "match": [{"path": ["/health"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}]
+                                        }]
+                                    },
+                                    {
+                                        "handle": [{
+                                            "handler": "file_server",
+                                            "root": "/home/commander/.zeroclaw/workspace/portal",
+                                            "try_files": ["{http.request.uri.path}", "/index.html"]
+                                        }]
+                                    }
+                                ]
+                            }]
+                        },
+                        {
+                            "match": [{"host": ["dash.karndt.pl"]}],
+                            "handle": [{
+                                "handler": "subroute",
+                                "routes": [
+                                    {
+                                        "match": [{"path": ["/api/*"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}],
+                                            "headers": {
+                                                "request": {
+                                                    "set": {"Host": ["127.0.0.1:42617"]},
+                                                    "delete": ["CF-Connecting-IP", "CF-Ray", "X-Forwarded-For", "X-Real-IP", "True-Client-IP", "CF-IPCountry", "CF-Visitor", "CF-EW-Via", "Sec-Fetch-Site", "Sec-Fetch-Mode", "Sec-Fetch-Dest", "Sec-Fetch-User", "Sec-CH-UA", "Sec-CH-UA-Mobile", "Sec-CH-UA-Platform", "DNT", "User-Agent"]
+                                                }
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        "match": [{"path": ["/ws/*"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}]
+                                        }]
+                                    },
+                                    {
+                                        "match": [{"path": ["/pair"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}],
+                                            "headers": {
+                                                "request": {
+                                                    "set": {"Host": ["127.0.0.1:42617"]},
+                                                    "delete": ["CF-Connecting-IP", "CF-Ray", "X-Forwarded-For", "X-Real-IP", "True-Client-IP", "CF-IPCountry", "CF-Visitor", "CF-EW-Via", "Sec-Fetch-Site", "Sec-Fetch-Mode", "Sec-Fetch-Dest", "Sec-Fetch-User", "Sec-CH-UA", "Sec-CH-UA-Mobile", "Sec-CH-UA-Platform", "DNT", "User-Agent"]
+                                                }
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        "match": [{"path": ["/health"]}],
+                                        "handle": [{
+                                            "handler": "reverse_proxy",
+                                            "upstreams": [{"dial": "127.0.0.1:42617"}]
+                                        }]
+                                    },
+                                    {
+                                        "handle": [{
+                                            "handler": "file_server",
+                                            "root": "/home/commander/.zeroclaw/workspace/web/dist",
+                                            "try_files": ["{http.request.uri.path}", "/index.html"]
+                                        }]
+                                    }
+                                ]
+                            }]
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

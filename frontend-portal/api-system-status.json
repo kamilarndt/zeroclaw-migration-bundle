@@ -1,0 +1,21 @@
+{
+  "quota_used_percent": 25,
+  "status": "GREEN",
+  "reset_in_mins": 102,
+  "reset_at": "2026-03-09T17:00:00",
+  "routing_mode": "normal",
+  "recommendation": "All systems go. Hybrid routing active.",
+  "data_sources": {
+    "memory_analysis": {
+      "method": "memory_analysis",
+      "error": "no such table: memory_entries"
+    },
+    "log_analysis": {
+      "method": "log_analysis",
+      "status": "healthy",
+      "estimated_usage_percent": 25
+    }
+  },
+  "confidence": "unknown",
+  "last_checked": "2026-03-09T15:17:25.901285"
+}
