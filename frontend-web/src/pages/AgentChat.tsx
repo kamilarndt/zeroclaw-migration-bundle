@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useWebSocket } from '../contexts/WebSocketContext'
-import { ChatMessage as ChatMessageType } from '../types'
+import { ChatMessage as ChatMessageType } from '@types'
 import { ChatInput } from '../components/chat/ChatInput'
 import { ChatMessage } from '../components/chat/ChatMessage'
 import { SwarmChatter } from '../components/chat/SwarmChatter'

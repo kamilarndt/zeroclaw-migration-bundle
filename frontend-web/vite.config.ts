@@ -15,7 +15,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/localhost:(42617|3000)\/(api|ws|pair|webhook)\/.*/i,
+            urlPattern: /^https:\/\/(localhost|dash\.karndt\.pl):(42617|3000)\/(api|ws|pair|webhook)\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',

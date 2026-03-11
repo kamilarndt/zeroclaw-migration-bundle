@@ -1,5 +1,5 @@
 import { useState, useRef, FormEvent } from 'react'
-import { useAudioRecorder } from '@hooks/useAudioRecorder'
+import { useAudioRecorder } from '../../hooks/useAudioRecorder'
 import { Paperclip, Mic, Send, StopCircle } from 'lucide-react'
 
 interface ChatInputProps {

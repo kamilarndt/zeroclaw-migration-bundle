@@ -2,12 +2,24 @@
 // API Client for ZeroClaw
 // ---------------------------------------------------------------------------
 
+// API Base URL configuration
+const getApiBaseUrl = () => {
+  // If we're in development/localhost, use the local server
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:42617'; // Daemon port
+  }
+  // For production deployment, use relative URL (same-origin via Caddy proxy)
+  return '';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
 /**
  * Pair with the ZeroClaw agent using a 6-digit code.
  * Returns a bearer token that should be stored and used for subsequent requests.
  */
 export async function pair(code: string): Promise<{ token: string }> {
-  const response = await fetch('http://127.0.0.1:42617/api/v1/pair', {
+  const response = await fetch(`${API_BASE_URL}/api/v1/pair`, {
     method: 'POST',
     headers: {
       'X-Pairing-Code': code.trim(),
@@ -27,7 +39,7 @@ export async function pair(code: string): Promise<{ token: string }> {
  * Returns whether pairing is required and whether the agent is already paired.
  */
 export async function getPublicHealth(): Promise<{ require_pairing: boolean; paired: boolean }> {
-  const response = await fetch('http://127.0.0.1:42617/health');
+  const response = await fetch(`${API_BASE_URL}/health`);
 
   if (!response.ok) {
     throw new Error(`Health check failed: ${response.status}`);
@@ -47,7 +59,7 @@ export async function apiFetch<T>(
   const token = localStorage.getItem('zeroclaw_token');
 
   // Prepend base URL if path is relative
-  const fetchUrl = path.startsWith('/') ? `http://127.0.0.1:42617/api/v1${path}` : path;
+  const fetchUrl = path.startsWith('/') ? `${API_BASE_URL}/api/v1${path}` : path;
   const response = await fetch(fetchUrl, {
     ...options,
     headers: {

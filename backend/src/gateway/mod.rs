@@ -29,7 +29,7 @@ use anyhow::{Context, Result};
 use axum::{
     body::Bytes,
     extract::{ConnectInfo, Query, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{header, HeaderMap, HeaderName, StatusCode},
     response::{IntoResponse, Json},
     routing::{delete, get, post, put},
     Router,
@@ -736,7 +736,12 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
             CorsLayer::new()
                 .allow_origin(Any)
                 .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE, axum::http::Method::OPTIONS])
-                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::AUTHORIZATION, axum::http::header::ACCEPT])
+                .allow_headers([
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::header::AUTHORIZATION,
+                    axum::http::header::ACCEPT,
+                    HeaderName::from_static("x-pairing-code"), // Required for mobile pairing
+                ])
         )
         .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
         .layer(TimeoutLayer::with_status_code(

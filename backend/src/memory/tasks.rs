@@ -16,16 +16,24 @@ pub enum TaskStatus {
     Done,
 }
 
-impl TaskStatus {
-    /// Parse from string (for database reads)
-    pub fn from_str(s: &str) -> Self {
+impl std::str::FromStr for TaskStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Todo" => TaskStatus::Todo,
-            "InProgress" => TaskStatus::InProgress,
-            "Review" => TaskStatus::Review,
-            "Done" => TaskStatus::Done,
-            _ => TaskStatus::Todo,
+            "Todo" => Ok(TaskStatus::Todo),
+            "InProgress" => Ok(TaskStatus::InProgress),
+            "Review" => Ok(TaskStatus::Review),
+            "Done" => Ok(TaskStatus::Done),
+            _ => Err(format!("Unknown task status: {}", s)),
         }
+    }
+}
+
+impl TaskStatus {
+    /// Parse from string (for database reads) - fallback to Todo for unknown values
+    pub fn from_str_fallback(s: &str) -> Self {
+        s.parse().unwrap_or(TaskStatus::Todo)
     }
 
     /// Convert to string (for database writes)
@@ -75,7 +83,7 @@ impl AgentTask {
         Ok(Self {
             id: row.get(0)?,
             title: row.get(1)?,
-            status: TaskStatus::from_str(&row.get::<_, String>(2)?),
+            status: TaskStatus::from_str_fallback(&row.get::<_, String>(2)?),
             parent_id: row.get(3)?,
             assigned_hand: row.get(4)?,
             created_at: row.get(5)?,

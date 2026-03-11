@@ -5,20 +5,20 @@ default_model = "glm-4.5"
 default_temperature = 0.1
 embedding_routes = []
 
-[model_providers.ollama]
-name = "ollama"
-base_url = "http://127.0.0.1:11434"
-requires_openai_auth = false
+[model_providers.zai]
+name = "zai"
+base_url = "https://api.z.ai/api/coding/paas/v4"
+requires_openai_auth = true
 
 [model_providers.custom]
 name = "custom"
 base_url = "https://api.z.ai/api/coding/paas/v4"
 requires_openai_auth = true
 
-[model_providers.zai]
-name = "zai"
-base_url = "https://api.z.ai/api/coding/paas/v4"
-requires_openai_auth = true
+[model_providers.ollama]
+name = "ollama"
+base_url = "http://127.0.0.1:11434"
+requires_openai_auth = false
 
 [observability]
 backend = "none"
@@ -265,7 +265,7 @@ memory_limit_mb = 2048
 cpu_limit = 2.0
 read_only_rootfs = false
 mount_workspace = true
-allowed_workspace_roots = ["/home/commander/.zeroclaw/workspace"]
+allowed_workspace_roots = ["/"]
 
 [reliability]
 provider_retries = 1
@@ -283,10 +283,10 @@ scheduler_retries = 3
 [reliability.model_fallbacks]
 
 [reliability.provider_model_aliases.ollama]
-"glm-4.5" = "qwen2.5-coder:7b"
-glm-5 = "qwen2.5-coder:7b"
-"glm-4.7" = "qwen2.5-coder:7b"
 "glm-4.5v" = "llava:7b"
+"glm-4.5" = "qwen2.5-coder:7b"
+"glm-4.7" = "qwen2.5-coder:7b"
+glm-5 = "qwen2.5-coder:7b"
 
 [scheduler]
 enabled = true
@@ -532,9 +532,9 @@ provider = "none"
 [gateway]
 port = 42617
 host = "127.0.0.1"
-require_pairing = false
+require_pairing = true
 allow_public_bind = false
-paired_tokens = []
+paired_tokens = ["6bcf8393f3fcb1d50e3eb6af0f0a239c7369b33fc4218b5405c0de3f26f3b20b"]
 pair_rate_limit_per_minute = 10
 webhook_rate_limit_per_minute = 60
 trust_forwarded_headers = false
@@ -602,41 +602,41 @@ monthly_limit_usd = 100.0
 warn_at_percent = 80
 allow_override = false
 
-[cost.prices."anthropic/claude-3.5-sonnet"]
+[cost.prices."anthropic/claude-3-haiku"]
+input = 0.25
+output = 1.25
+
+[cost.prices."anthropic/claude-sonnet-4-20250514"]
 input = 3.0
 output = 15.0
 
-[cost.prices."openai/gpt-4o-mini"]
-input = 0.15
-output = 0.6
+[cost.prices."anthropic/claude-3.5-sonnet"]
+input = 3.0
+output = 15.0
 
 [cost.prices."openai/o1-preview"]
 input = 15.0
 output = 60.0
 
-[cost.prices."google/gemini-2.0-flash"]
-input = 0.1
-output = 0.4
-
-[cost.prices."openai/gpt-4o"]
-input = 5.0
-output = 15.0
-
 [cost.prices."anthropic/claude-opus-4-20250514"]
 input = 15.0
 output = 75.0
-
-[cost.prices."anthropic/claude-3-haiku"]
-input = 0.25
-output = 1.25
 
 [cost.prices."google/gemini-1.5-pro"]
 input = 1.25
 output = 5.0
 
-[cost.prices."anthropic/claude-sonnet-4-20250514"]
-input = 3.0
+[cost.prices."openai/gpt-4o-mini"]
+input = 0.15
+output = 0.6
+
+[cost.prices."openai/gpt-4o"]
+input = 5.0
 output = 15.0
+
+[cost.prices."google/gemini-2.0-flash"]
+input = 0.1
+output = 0.4
 
 [peripherals]
 enabled = false

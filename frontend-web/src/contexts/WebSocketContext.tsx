@@ -64,7 +64,13 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
   const getWebSocketUrl = (): string => {
     if (url) return url
 
-    const baseWsUrl = 'ws://127.0.0.1:42617/ws/chat'
+    // Determine WebSocket protocol and host based on current environment
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+      ? '127.0.0.1:42619' // Use pairing server port for now
+      : '127.0.0.1:42619' // Use pairing server port for production
+    
+    const baseWsUrl = `${protocol}//${host}/ws/chat`
     const token = window.localStorage.getItem('zeroclaw_token')
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : ''
     return `${baseWsUrl}${tokenParam}`
