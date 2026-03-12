@@ -2186,12 +2186,43 @@ pub async fn handle_tui_chat(
         }
     };
 
-    // TODO: Implement actual chat logic using state.provider and state.mem
-    // For now, return a stub response
-    let response = format!(
-        "[TUI STUB] Received message in session '{}': {}",
-        session_id, content
-    );
+    // Process the message using the full agent with tools
+    let config = state.config.lock().clone();
+    let response = match crate::agent::process_message(config, content).await {
+        Ok(resp) => resp,
+        Err(e) => {
+            tracing::error!("TUI chat error: {e:#}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "response": serde_json::Value::Null,
+                    "error": format!("Processing error: {}", e)
+                }))
+            ).into_response();
+        }
+    };
+
+    // Store the conversation in memory if auto_save is enabled
+    if state.auto_save {
+        let _ = state
+            .mem
+            .store(
+                &format!("tui:{}:user", session_id),
+                content,
+                crate::memory::MemoryCategory::Conversation,
+                Some(session_id),
+            )
+            .await;
+        let _ = state
+            .mem
+            .store(
+                &format!("tui:{}:assistant", session_id),
+                &response,
+                crate::memory::MemoryCategory::Conversation,
+                Some(session_id),
+            )
+            .await;
+    }
 
     Json(serde_json::json!({
         "response": response,
@@ -2212,6 +2243,7 @@ pub async fn handle_tui_agents_active(
 
     // TODO: Query actual subagent status from SubAgentManager
     // For now, return empty array (no active agents)
+    // This would integrate with the routing module's subagent system
     Json(serde_json::json!([])).into_response()
 }
 
@@ -2228,12 +2260,15 @@ pub async fn handle_tui_routing_status(
 
     let config = state.config.lock();
 
-    // TODO: Query actual routing status from router module
-    // For now, return stub data based on current config
+    // Return actual routing status from config
+    // TODO: Integrate with rate_limiter for actual quota tracking
     let response = serde_json::json!({
-        "active_provider": config.default_provider.clone(),
-        "quota_used_percent": 0.0,
-        "fallback_active": false
+        "active_provider": config.default_provider.clone().unwrap_or_else(|| "unknown".to_string()),
+        "model": state.model.clone(),
+        "temperature": state.temperature,
+        "quota_used_percent": 0.0,  // TODO: Get from rate_limiter
+        "fallback_active": false,     // TODO: Get from routing module
+        "paired": state.pairing.is_paired(),
     });
 
     drop(config);
