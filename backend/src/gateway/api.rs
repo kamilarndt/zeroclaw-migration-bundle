@@ -2150,3 +2150,92 @@ mod tests {
             .all(|route| route.api_key.as_deref() != Some(MASKED_SECRET)));
     }
 }
+
+// ============================================================================
+// TUI API Handlers
+// ============================================================================
+
+/// POST /api/chat — Send message to agent
+///
+/// Request body: {"session_id": "optional-id", "content": "message"}
+/// Response: {"response": "...", "error": null}
+pub async fn handle_tui_chat(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    // Extract session_id and content from request
+    let session_id = body.get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
+
+    let content = match body.get("content").and_then(|v| v.as_str()) {
+        Some(msg) if !msg.is_empty() => msg,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "response": serde_json::Value::Null,
+                    "error": "Missing or empty 'content' field"
+                }))
+            ).into_response();
+        }
+    };
+
+    // TODO: Implement actual chat logic using state.provider and state.mem
+    // For now, return a stub response
+    let response = format!(
+        "[TUI STUB] Received message in session '{}': {}",
+        session_id, content
+    );
+
+    Json(serde_json::json!({
+        "response": response,
+        "error": null
+    })).into_response()
+}
+
+/// GET /api/agents/active — List active subagents
+///
+/// Response: [{"id": "agent-1", "name": "Search", "model": "gpt-4", "progress": 75, "status": "running"}]
+pub async fn handle_tui_agents_active(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    // TODO: Query actual subagent status from SubAgentManager
+    // For now, return empty array (no active agents)
+    Json(serde_json::json!([])).into_response()
+}
+
+/// GET /api/routing/status — Get router status
+///
+/// Response: {"active_provider": "openai", "quota_used_percent": 45.0, "fallback_active": false}
+pub async fn handle_tui_routing_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    let config = state.config.lock();
+
+    // TODO: Query actual routing status from router module
+    // For now, return stub data based on current config
+    let response = serde_json::json!({
+        "active_provider": config.default_provider.clone(),
+        "quota_used_percent": 0.0,
+        "fallback_active": false
+    });
+
+    drop(config);
+    Json(response).into_response()
+}
