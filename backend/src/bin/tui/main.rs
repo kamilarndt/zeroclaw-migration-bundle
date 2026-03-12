@@ -29,9 +29,82 @@ use std::time::Duration;
 /// Demo mode environment variable
 const DEMO_MODE_ENV: &str = "ZEROCLAW_TUI_DEMO";
 
+/// Check if stdout is a terminal (TTY)
+fn is_terminal() -> bool {
+    atty::is(atty::Stream::Stdout)
+}
+
+/// Print usage information
+fn print_usage() {
+    println!("ZeroClaw TUI Dashboard v{}", env!("CARGO_PKG_VERSION"));
+    println!();
+    println!("USAGE:");
+    println!("  zeroclaw-tui           Start TUI dashboard");
+    println!("  zeroclaw-tui --help    Show this help");
+    println!("  zeroclaw-tui --version Show version");
+    println!();
+    println!("ENVIRONMENT:");
+    println!("  ZEROCLAW_TUI_DEMO=1    Run in demo mode (no API connection)");
+    println!();
+    println!("KEY BINDINGS:");
+    println!("  i          Enter insert mode (type messages)");
+    println!("  Esc        Return to normal mode");
+    println!("  Ctrl+T     Create new session");
+    println!("  Tab        Next session");
+    println!("  Shift+Tab  Previous session");
+    println!("  Ctrl+W     Close current session");
+    println!("  :          Enter command mode (:q to quit, :help)");
+    println!("  ?          Show help");
+    println!("  q          Quit (in normal mode)");
+}
+
+/// Print version information
+fn print_version() {
+    println!("zeroclaw-tui {}", env!("CARGO_PKG_VERSION"));
+}
+
 /// Main entry point for ZeroClaw TUI
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn run() -> anyhow::Result<()> {
+    // Check for help/version flags
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "--help" | "-h" => {
+                print_usage();
+                return Ok(());
+            }
+            "--version" | "-V" => {
+                print_version();
+                return Ok(());
+            }
+            _ => {
+                eprintln!("Unknown option: {}", args[1]);
+                eprintln!("Run 'zeroclaw-tui --help' for usage information");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    // Verify we're in a terminal
+    if !is_terminal() {
+        eprintln!("Error: zeroclaw-tui requires a terminal (TTY) to run.");
+        eprintln!();
+        eprintln!("This typically means:");
+        eprintln!("  1. You're piping input/output (e.g., via ssh or a script)");
+        eprintln!("  2. You're running in a non-interactive environment");
+        eprintln!();
+        eprintln!("To run the TUI, ensure you have an interactive terminal session.");
+        eprintln!("Then simply run: zeroclaw-tui");
+        std::process::exit(1);
+    }
+
+    // Run the async main
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(async_main())
+}
+
+/// Async main function
+async fn async_main() -> anyhow::Result<()> {
     // Check for demo mode
     let demo_mode = std::env::var(DEMO_MODE_ENV).is_ok();
 
@@ -220,6 +293,14 @@ async fn handle_event(
         AppEvent::Help => {
             // Handled in main loop
         }
+    }
+}
+
+/// Entry point - delegates to run() for proper error handling
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {e:#}");
+        std::process::exit(1);
     }
 }
 

@@ -38,6 +38,9 @@ crossterm = { version = "0.28", default-features = false, features = ["event-str
 # Text wrapping for TUI
 textwrap = "0.16"
 
+# TTY detection for TUI
+atty = "0.2"
+
 # Matrix client + E2EE decryption
 matrix-sdk = { version = "0.16", optional = true, default-features = false, features = ["e2e-encryption", "rustls-tls", "markdown", "sqlite"] }
 
