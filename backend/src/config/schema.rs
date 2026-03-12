@@ -849,7 +849,7 @@ impl Default for GatewayConfig {
         Self {
             port: default_gateway_port(),
             host: default_gateway_host(),
-            require_pairing: true,
+            require_pairing: false,
             allow_public_bind: false,
             paired_tokens: Vec::new(),
             pair_rate_limit_per_minute: default_pair_rate_limit(),
@@ -5420,7 +5420,7 @@ channel_id = "C123"
         let g = GatewayConfig {
             port: 42617,
             host: "127.0.0.1".into(),
-            require_pairing: true,
+            require_pairing: false,
             allow_public_bind: false,
             paired_tokens: vec!["zc_test_token".into()],
             pair_rate_limit_per_minute: 12,
