@@ -1586,6 +1586,9 @@ mod tests {
     use parking_lot::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    // Include TUI API tests
+    mod tui_api_tests;
+
     /// Generate a random hex secret at runtime to avoid hard-coded cryptographic values.
     fn generate_test_secret() -> String {
         let bytes: [u8; 32] = rand::random();
