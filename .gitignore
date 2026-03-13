@@ -69,3 +69,7 @@ coverage/
 # Build cache
 .cache/
 .parcel-cache/
+
+# Git worktrees (isolated workspaces)
+.worktrees/
+worktrees/
