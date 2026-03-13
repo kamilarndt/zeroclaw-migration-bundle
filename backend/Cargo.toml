@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/robot-kit", "crates/quota-tracker"]
+members = [".", "crates/robot-kit", "crates/quota-tracker", "crates/usage-logger"]
 resolver = "2"
 
 [package]
