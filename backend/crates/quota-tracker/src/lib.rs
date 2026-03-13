@@ -28,10 +28,7 @@ impl Default for QuotaConfig {
         Self {
             daily_quota_estimate: 1_000_000,
             threshold_percent: 0.8,
-            cache_path: dirs::home_dir()
-                .unwrap()
-                .join(".zeroclaw")
-                .join("quota.db"),
+            cache_path: std::path::PathBuf::from(".zeroclaw/quota.db"),
         }
     }
 }
