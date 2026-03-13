@@ -70,7 +70,7 @@ impl QuotaAwareRouter {
     /// - Unknown state: Use conservative defaults
     pub async fn route_with_quota(&self, task_hint: &str, model: &str) -> QuotaRouteDecision {
         let quota_state = if let Some(tracker) = &self.quota_tracker {
-            tracker.get_state().await
+            tracker.get_state()
         } else {
             QuotaState::Unknown
         };
