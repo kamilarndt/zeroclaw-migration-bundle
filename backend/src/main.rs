@@ -52,6 +52,7 @@ mod agent;
 mod approval;
 mod auth;
 mod channels;
+mod commands;
 mod diagnostic;
 mod rag {
     pub use zeroclaw::rag::*;
@@ -455,6 +456,24 @@ Examples:
   source <(zeroclaw completions bash)
   zeroclaw completions zsh > ~/.zfunc/_zeroclaw
   zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish")]
+    /// Manage API quota and usage limits
+    Quota {
+        #[command(subcommand)]
+        quota_command: commands::QuotaCommand,
+    },
+
+    /// Run and compare benchmarks
+    Benchmark {
+        #[command(subcommand)]
+        benchmark_command: commands::BenchmarkCommand,
+    },
+
+    /// View usage metrics and analytics
+    Metrics {
+        #[command(flatten)]
+        metrics_command: commands::MetricsCommand,
+    },
+
     Completions {
         /// Target shell
         #[arg(value_enum)]
@@ -1052,6 +1071,18 @@ async fn main() -> Result<()> {
                 Ok(())
             }
         },
+
+        Commands::Quota { quota_command } => {
+            commands::handle_quota(quota_command).await
+        }
+
+        Commands::Benchmark { benchmark_command } => {
+            commands::handle_benchmark(benchmark_command).await
+        }
+
+        Commands::Metrics { metrics_command } => {
+            commands::handle_metrics(metrics_command).await
+        }
     }
 }
 
