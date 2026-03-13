@@ -7,6 +7,7 @@
 //! - Subagent delegation capabilities
 
 pub mod classifier;
+pub mod quota_aware;
 pub mod rate_limiter;
 pub mod router;
 pub mod subagent;
@@ -17,6 +18,7 @@ pub use classifier::{
     ClassificationInput, ClassificationResult, Classifier, TaskType,
 };
 pub use router::{RateAwareRouter, ProviderEntry, RateLimitTracker, RouteDecision, RateLimitConfig};
+pub use quota_aware::{QuotaAwareRouter, QuotaRouteDecision};
 pub use usage_monitor::{UsageMonitor, UsageStats, UsageSyncConfig};
 pub use subagent::{SubAgentManager, SubTask, SubAgentError};
 

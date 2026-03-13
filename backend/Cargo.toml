@@ -20,6 +20,9 @@ rust-version = "1.87"
 clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"
 
+# Quota tracking for smart routing
+quota-tracker = { path = "crates/quota-tracker" }
+
 # Async runtime - feature-optimized for size
 tokio = { version = "1.42", default-features = false, features = ["rt-multi-thread", "macros", "time", "net", "io-util", "sync", "process", "io-std", "fs", "signal"] }
 tokio-util = { version = "0.7", default-features = false }
