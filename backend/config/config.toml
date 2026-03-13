@@ -1,0 +1,43 @@
+# ZeroClaw Configuration File
+# This file contains core configuration settings for the ZeroClaw backend
+
+# ================================================================
+# QUOTA TRACKING
+# ================================================================
+[quota_tracker]
+enabled = true
+daily_quota_estimate = 1000000
+threshold_percent = 80.0
+cache_path = "~/.zeroclaw/quota.db"
+
+[quota_tracker.provider_limits]
+zai = { requests_per_minute = 60, daily_tokens = 1000000 }
+openrouter = { requests_per_minute = 20, requests_per_day = 50 }
+nvidia = { requests_per_minute = 40 }
+mistral = { requests_per_minute = 30, requests_per_day = 2000 }
+ollama = { requests_per_minute = 1000 }
+
+# ================================================================
+# BENCHMARKING & METRICS
+# ================================================================
+[benchmarking]
+enabled = true
+metrics_db = "~/.zeroclaw/metrics.db"
+auto_adjust_after = 50
+log_failed_requests = true
+retention_days = 30
+
+[benchmarking.cost_per_token]
+"glm-5" = { prompt = 0.002, completion = 0.006 }
+"glm-4.7" = { prompt = 0.001, completion = 0.003 }
+"glm-4.6" = { prompt = 0.0005, completion = 0.0015 }
+"glm-4.5" = { prompt = 0.0003, completion = 0.0009 }
+"glm-4.5v" = { prompt = 0.0005, completion = 0.0015 }
+"glm-4.5-air" = { prompt = 0.0, completion = 0.0 }
+"codestral" = { prompt = 0.001, completion = 0.003 }
+
+# ================================================================
+# CHANNELS CONFIG
+# ================================================================
+[channels_config.telegram]
+bot_token = "8548880154:AAEfWROgLC1-msLxcF3MttNlymUYJFjrZWQ"
