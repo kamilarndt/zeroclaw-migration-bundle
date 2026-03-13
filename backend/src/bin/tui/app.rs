@@ -303,6 +303,9 @@ impl AppState {
             Some(unknown) => {
                 (format!("Unknown command: {}. Type :help for commands.", unknown), false)
             }
+            None => {
+                ("Empty command".to_string(), true)
+            }
         }
     }
 
@@ -368,7 +371,7 @@ fn run_tui_diagnostic() -> String {
 }
 
 /// Get help text (re-export from events module)
-pub use crate::bin::tui::events::get_help_text;
+pub use super::events::get_help_text;
 
 #[cfg(test)]
 mod tests {

@@ -1920,7 +1920,7 @@ async fn run_test_mode() -> Result<()> {
                     diagnostic::DiagnosticStatus::Warn => "⚠",
                     diagnostic::DiagnosticStatus::Skip => "⊘",
                 };
-                println!("{} {}: {}", status, check.name, check.message);
+                println!("{} {}: {}", status, check.name, check.message.as_deref().unwrap_or(""));
                 if check.status == diagnostic::DiagnosticStatus::Fail {
                     all_passed = false;
                 }

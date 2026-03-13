@@ -1,13 +1,14 @@
 use clap::Subcommand;
 use quota_tracker::{QuotaTracker, QuotaConfig};
+use anyhow::Result;
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum QuotaCommand {
     Status,
     Reset,
 }
 
-pub async fn handle_quota(cmd: QuotaCommand) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn handle_quota(cmd: QuotaCommand) -> Result<()> {
     match cmd {
         QuotaCommand::Status => {
             let config = QuotaConfig::default();

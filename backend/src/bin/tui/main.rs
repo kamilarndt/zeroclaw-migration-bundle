@@ -175,9 +175,10 @@ async fn async_main() -> anyhow::Result<()> {
                     if app_event == AppEvent::ToggleInputMode && app.input_mode == app::InputMode::Command {
                         // Exiting command mode - execute command
                         if !app.input_buffer.is_empty() {
-                            let (output, should_clear) = app.execute_command(&app.input_buffer);
-                            app.add_system_message(format!(":{}", app.input_buffer));
-                            if !output.is_empty() && output != format!(":{}", app.input_buffer) {
+                            let input_buf = app.input_buffer.clone();
+                            let (output, should_clear) = app.execute_command(&input_buf);
+                            app.add_system_message(format!(":{}", input_buf));
+                            if !output.is_empty() && output != format!(":{}", input_buf) {
                                 app.add_system_message(output);
                             }
                             if should_clear {
@@ -360,10 +361,10 @@ fn run_tui_diagnostic() -> String {
 
     results.push("─".repeat(40));
     results.push("Commands:".to_string());
-    results.push("  :test    Run diagnostics");
-    results.push("  :new     Create new session");
-    results.push("  :clear   Clear current session");
-    results.push("  :q       Quit");
+    results.push("  :test    Run diagnostics".to_string());
+    results.push("  :new     Create new session".to_string());
+    results.push("  :clear   Clear current session".to_string());
+    results.push("  :q       Quit".to_string());
 
     results.join("\n")
 }

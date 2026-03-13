@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU64, Ordering};
 use chrono::Utc;
+use anyhow::Result;
 
 /// Main quota tracker
 pub struct QuotaTracker {
@@ -18,7 +19,7 @@ pub struct QuotaTracker {
 
 impl QuotaTracker {
     /// Create a new quota tracker
-    pub fn new(config: QuotaConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(config: QuotaConfig) -> Result<Self> {
         // Ensure parent directory exists
         if let Some(parent) = config.cache_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -88,7 +89,7 @@ impl QuotaTracker {
     }
 
     /// Record token usage from an API response
-    pub fn record_usage(&self, provider: Provider, prompt_tokens: u32, completion_tokens: u32) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record_usage(&self, provider: Provider, prompt_tokens: u32, completion_tokens: u32) -> Result<()> {
         let total_tokens = prompt_tokens + completion_tokens;
         let today = Utc::now().format("%Y-%m-%d").to_string();
 
@@ -116,7 +117,7 @@ impl QuotaTracker {
     }
 
     /// Reset daily counters
-    pub fn reset_daily(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn reset_daily(&self) -> Result<()> {
         self.daily_tokens.store(0, Ordering::Relaxed);
         self.daily_requests.store(0, Ordering::Relaxed);
         Ok(())
