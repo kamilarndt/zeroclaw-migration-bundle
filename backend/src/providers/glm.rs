@@ -10,6 +10,14 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// GLM model identifiers
+pub const MODEL_GLM_5: &str = "glm-5";
+pub const MODEL_GLM_4_7: &str = "glm-4.7";
+pub const MODEL_GLM_4_6: &str = "glm-4.6";
+pub const MODEL_GLM_4_5V: &str = "glm-4.5v";
+pub const MODEL_GLM_4_5: &str = "glm-4.5";
+pub const MODEL_GLM_4_5_AIR: &str = "glm-4.5-air";
+
 pub struct GlmProvider {
     api_key_id: String,
     api_key_secret: String,

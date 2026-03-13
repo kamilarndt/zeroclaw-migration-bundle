@@ -1,5 +1,6 @@
 pub mod schema;
 pub mod traits;
+pub mod routing;
 
 // Domain-specific schema modules
 pub mod schemas {

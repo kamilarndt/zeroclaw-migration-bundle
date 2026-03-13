@@ -52,6 +52,7 @@ mod agent;
 mod approval;
 mod auth;
 mod channels;
+mod diagnostic;
 mod rag {
     pub use zeroclaw::rag::*;
 }
@@ -1883,13 +1884,13 @@ async fn run_test_mode() -> Result<()> {
 
             for check in &checks {
                 let status = match check.status {
-                    diagnostic::CheckStatus::Pass => "✓",
-                    diagnostic::CheckStatus::Fail => "✗",
-                    diagnostic::CheckStatus::Warn => "⚠",
-                    diagnostic::CheckStatus::Skip => "⊘",
+                    diagnostic::DiagnosticStatus::Pass => "✓",
+                    diagnostic::DiagnosticStatus::Fail => "✗",
+                    diagnostic::DiagnosticStatus::Warn => "⚠",
+                    diagnostic::DiagnosticStatus::Skip => "⊘",
                 };
                 println!("{} {}: {}", status, check.name, check.message);
-                if check.status == diagnostic::CheckStatus::Fail {
+                if check.status == diagnostic::DiagnosticStatus::Fail {
                     all_passed = false;
                 }
             }

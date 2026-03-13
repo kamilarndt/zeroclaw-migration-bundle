@@ -369,7 +369,6 @@ fn run_tui_diagnostic() -> String {
 
 /// Get help text (re-export from events module)
 pub use crate::bin::tui::events::get_help_text;
-}
 
 #[cfg(test)]
 mod tests {

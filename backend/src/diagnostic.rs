@@ -61,8 +61,8 @@ pub async fn run_diagnostics(config: &Config) -> Vec<DiagnosticCheck> {
 
 /// Validate configuration structure
 pub fn validate_config(config: &Config) -> DiagnosticCheck {
-    let mut warnings = Vec::new();
-    let mut errors = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
 
     // Check gateway config
     if config.gateway.port == 0 {
@@ -171,11 +171,12 @@ fn check_memory_backend() -> DiagnosticCheck {
 fn check_gateway_config(config: &Config) -> DiagnosticCheck {
     let host = &config.gateway.host;
     let port = config.gateway.port;
+    let port_display = if port == 0 { "random".to_string() } else { port.to_string() };
 
     DiagnosticCheck {
         name: "Gateway".to_string(),
         status: DiagnosticStatus::Pass,
-        message: Some(format!("Will listen on {}:{}", host, if port == 0 { "random" } else { &port.to_string() })),
+        message: Some(format!("Will listen on {}:{}", host, port_display)),
         details: Some(json!({
             "port": port,
             "host": host,
@@ -232,11 +233,12 @@ pub async fn quick_test() -> Result<String, anyhow::Error> {
         .text()
         .await?;
 
-    let status_str = serde_json::from_str::<serde_json::Value>(&response)
-        .ok()
-        .and_then(|v| v["status"].as_str())
-        .unwrap_or("ok")
-        .to_string();
+    // Parse JSON and extract status
+    let status_str = if let Ok(value) = serde_json::from_str::<serde_json::Value>(&response) {
+        value["status"].as_str().unwrap_or("ok").to_string()
+    } else {
+        "ok".to_string()
+    };
 
     Ok(format!("✓ Gateway responsive\n✓ API endpoints working\nHealth: {}", status_str))
 }
