@@ -171,6 +171,20 @@ async fn async_main() -> anyhow::Result<()> {
 
                 // Map key to app event
                 if let Some(app_event) = map_key_event(key, &app.input_mode) {
+                    // Special handling for command execution
+                    if app_event == AppEvent::ToggleInputMode && app.input_mode == app::InputMode::Command {
+                        // Exiting command mode - execute command
+                        if !app.input_buffer.is_empty() {
+                            let (output, should_clear) = app.execute_command(&app.input_buffer);
+                            app.add_system_message(format!(":{}", app.input_buffer));
+                            if !output.is_empty() && output != format!(":{}", app.input_buffer) {
+                                app.add_system_message(output);
+                            }
+                            if should_clear {
+                                app.input_buffer.clear();
+                            }
+                        }
+                    }
                     handle_event(app_event, &mut app, &zeroclaw_client).await;
                 }
             }
@@ -290,10 +304,68 @@ async fn handle_event(
             app.scroll_down();
         }
 
+        AppEvent::RunTest => {
+            // Run diagnostic test and display results
+            let output = run_tui_diagnostic();
+            app.add_system_message(output);
+        }
+
         AppEvent::Help => {
             // Handled in main loop
         }
     }
+}
+
+/// Run TUI diagnostic test
+fn run_tui_diagnostic() -> String {
+    use std::time::Duration;
+
+    // Try to connect to local gateway
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap_or_default();
+
+    let mut results = Vec::new();
+    results.push("🔍 ZeroClaw TUI Diagnostics".to_string());
+    results.push("─".repeat(40));
+
+    // Test 1: Gateway connection
+    match client.get("http://127.0.0.1:42617/health").send() {
+        Ok(response) => {
+            if response.status().is_success() {
+                results.push("✓ Gateway: CONNECTED".to_string());
+            } else {
+                results.push(format!("✗ Gateway: HTTP {}", response.status()));
+            }
+        }
+        Err(e) => {
+            results.push(format!("✗ Gateway: {}", e));
+        }
+    }
+
+    // Test 2: Diagnostic endpoint
+    match client.get("http://127.0.0.1:42617/api/diagnostic").send() {
+        Ok(response) => {
+            if response.status().is_success() {
+                results.push("✓ Diagnostic API: WORKING".to_string());
+            } else {
+                results.push(format!("! Diagnostic API: HTTP {}", response.status()));
+            }
+        }
+        Err(e) => {
+            results.push(format!("✗ Diagnostic API: {}", e));
+        }
+    }
+
+    results.push("─".repeat(40));
+    results.push("Commands:".to_string());
+    results.push("  :test    Run diagnostics");
+    results.push("  :new     Create new session");
+    results.push("  :clear   Clear current session");
+    results.push("  :q       Quit");
+
+    results.join("\n")
 }
 
 /// Entry point - delegates to run() for proper error handling

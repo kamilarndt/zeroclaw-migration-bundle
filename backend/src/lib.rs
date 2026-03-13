@@ -45,6 +45,7 @@ pub mod channels;
 pub mod config;
 pub(crate) mod cost;
 pub(crate) mod cron;
+pub mod diagnostic;
 pub(crate) mod daemon;
 pub(crate) mod doctor;
 pub mod gateway;

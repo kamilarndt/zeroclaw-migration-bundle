@@ -46,6 +46,9 @@ pub enum AppEvent {
 
     /// Show help
     Help,
+
+    /// Run diagnostics test
+    RunTest,
 }
 
 /// Map keyboard events to application events

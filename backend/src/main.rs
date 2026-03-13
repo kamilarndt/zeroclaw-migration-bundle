@@ -127,6 +127,10 @@ struct Cli {
     #[arg(long, global = true)]
     config_dir: Option<String>,
 
+    /// Run diagnostic tests and exit
+    #[arg(long, global = true)]
+    test: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -682,6 +686,18 @@ async fn main() -> Result<()> {
         let mut stdout = std::io::stdout().lock();
         write_shell_completion(*shell, &mut stdout)?;
         return Ok(());
+    }
+
+    // Test mode runs diagnostics and exits without loading full config
+    if cli.test {
+        // Initialize minimal logging for test output
+        let subscriber = fmt::Subscriber::builder()
+            .with_env_filter(EnvFilter::new("warn"))
+            .with_writer(std::io::stderr)
+            .without_time();
+        subscriber.init();
+
+        return run_test_mode().await;
     }
 
     // Initialize logging - respects RUST_LOG env var, defaults to INFO
@@ -1839,6 +1855,75 @@ async fn handle_auth_command(auth_command: AuthCommands, config: &Config) -> Res
             }
 
             Ok(())
+        }
+    }
+}
+
+/// Run test mode - diagnostics and validation
+async fn run_test_mode() -> Result<()> {
+    println!("🔍 ZeroClaw Diagnostic Test Mode");
+    println!("─{}─", "─".repeat(50));
+    println!();
+
+    // Try to load minimal config for diagnostics
+    let config_result = Config::load_or_init().await;
+
+    let mut all_passed = true;
+
+    match config_result {
+        Ok(config) => {
+            println!("✓ Config loaded: {}", config.config_path.display());
+            println!();
+
+            // Run full diagnostics
+            let checks = diagnostic::run_diagnostics(&config).await;
+
+            println!("Diagnostic Results:");
+            println!("─{}─", "─".repeat(50));
+
+            for check in &checks {
+                let status = match check.status {
+                    diagnostic::CheckStatus::Pass => "✓",
+                    diagnostic::CheckStatus::Fail => "✗",
+                    diagnostic::CheckStatus::Warn => "⚠",
+                    diagnostic::CheckStatus::Skip => "⊘",
+                };
+                println!("{} {}: {}", status, check.name, check.message);
+                if check.status == diagnostic::CheckStatus::Fail {
+                    all_passed = false;
+                }
+            }
+
+            println!("─{}─", "─".repeat(50));
+            println!();
+
+            if all_passed {
+                println!("✓ All checks passed!");
+                return Ok(());
+            } else {
+                println!("✗ Some checks failed. Run 'zeroclaw doctor' for details.");
+                anyhow::bail!("Diagnostic tests failed");
+            }
+        }
+        Err(e) => {
+            println!("✗ Failed to load config: {}", e);
+            println!();
+            println!("Basic checks:");
+            println!("─{}─", "─".repeat(50));
+
+            // Check workspace directory
+            if let Ok(ws) = std::env::var("ZEROCLAW_WORKSPACE") {
+                println!("✓ ZEROCLAW_WORKSPACE: {}", ws);
+            } else {
+                println!("⊘ ZEROCLAW_WORKSPACE: not set");
+            }
+
+            // Check for Qdrant
+            println!("⊘ Qdrant: not checked (config needed)");
+
+            println!();
+            println!("Run 'zeroclaw onboard' to initialize configuration.");
+            anyhow::bail!("Config not found - run onboard first");
         }
     }
 }

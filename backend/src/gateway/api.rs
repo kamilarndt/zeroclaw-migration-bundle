@@ -2274,3 +2274,71 @@ pub async fn handle_tui_routing_status(
     drop(config);
     Json(response).into_response()
 }
+
+// ============================================================================
+// Diagnostic API
+// ============================================================================
+
+/// GET /api/diagnostic — Run system diagnostics and health checks
+///
+/// Returns comprehensive diagnostic information about the ZeroClaw system:
+/// - Configuration validation
+/// - API keys status
+/// - Memory backend status
+/// - Gateway status
+/// - Channels configuration
+///
+/// Response: [{"name": "...", "status": "ok|warning|error", "message": "..."}]
+pub async fn handle_diagnostic(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    // Diagnostics are available without auth for troubleshooting
+    // but respect auth if enabled
+    if state.pairing.require_pairing() {
+        if let Err(e) = require_auth(&state, &headers).await {
+            return e.into_response();
+        }
+    }
+
+    let config = state.config.lock().clone();
+    let checks = crate::diagnostic::run_diagnostics(&config).await;
+
+    let overall_status = if checks.iter().any(|c| c.status == crate::diagnostic::DiagnosticStatus::Fail) {
+        "error"
+    } else if checks.iter().any(|c| c.status == crate::diagnostic::DiagnosticStatus::Warn) {
+        "warning"
+    } else {
+        "ok"
+    };
+
+    Json(serde_json::json!({
+        "status": overall_status,
+        "checks": checks,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    })).into_response()
+}
+
+/// GET /api/validate — Quick configuration validation
+///
+/// Validates the current configuration and returns any errors or warnings.
+/// Useful for CI/CD pipelines and pre-flight checks.
+pub async fn handle_validate_config(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let config = state.config.lock().clone();
+    let check = crate::diagnostic::validate_config(&config);
+
+    let (status, message) = match check.status {
+        crate::diagnostic::DiagnosticStatus::Pass => (StatusCode::OK, "Configuration is valid"),
+        crate::diagnostic::DiagnosticStatus::Warn => (StatusCode::OK, "Configuration valid with warnings"),
+        crate::diagnostic::DiagnosticStatus::Fail => (StatusCode::INTERNAL_SERVER_ERROR, "Configuration has errors"),
+        crate::diagnostic::DiagnosticStatus::Skip => (StatusCode::OK, "Skipped"),
+    };
+
+    Json(serde_json::json!({
+        "status": status.as_u16(),
+        "message": message,
+        "check": check,
+    })).into_response()
+}

@@ -708,6 +708,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/chat", post(api::handle_tui_chat))
         .route("/api/agents/active", get(api::handle_tui_agents_active))
         .route("/api/routing/status", get(api::handle_tui_routing_status))
+        // ── Diagnostic API routes ──
+        .route("/api/diagnostic", get(api::handle_diagnostic))
+        .route("/api/validate", get(api::handle_validate_config))
         // ── Tasks API ──
         .route("/api/tasks", get(api::handle_api_tasks_list))
         .route("/api/tasks", post(api::handle_api_tasks_create))
