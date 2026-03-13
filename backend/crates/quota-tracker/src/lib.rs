@@ -10,7 +10,7 @@ pub mod schema;
 
 pub use state::QuotaState;
 pub use tracker::QuotaTracker;
-pub use provider::{Provider, RateLimit};
+pub use provider::{Provider, RateLimit, RateTracker};
 
 /// Configuration for quota tracking
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
