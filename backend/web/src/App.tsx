@@ -11,6 +11,7 @@ import Config from './pages/Config';
 import Cost from './pages/Cost';
 import Logs from './pages/Logs';
 import Doctor from './pages/Doctor';
+import TelegramHub from './pages/TelegramHub';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { LocaleContext } from './contexts';
 import { PairingDialog } from './components/auth';
@@ -69,8 +70,19 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Routes>
+      {/* TMA Hub - outside AuthProvider, uses Telegram initData */}
+      <Route path="/tma/hub" element={<TelegramHub />} />
+
+      {/* Main app - requires JWT auth */}
+      <Route
+        path="*"
+        element={
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        }
+      />
+    </Routes>
   );
 }

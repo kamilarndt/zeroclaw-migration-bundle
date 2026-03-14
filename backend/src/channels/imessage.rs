@@ -232,6 +232,7 @@ end tell"#
                                 .unwrap_or_default()
                                 .as_secs(),
                             thread_ts: None,
+                            active_skills: vec![],
                         };
 
                         if tx.send(msg).await.is_err() {

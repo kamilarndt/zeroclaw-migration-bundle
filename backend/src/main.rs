@@ -759,7 +759,7 @@ async fn main() -> Result<()> {
         }?;
         // Auto-start channels if user said yes during wizard
         if std::env::var("ZEROCLAW_AUTOSTART_CHANNELS").as_deref() == Ok("1") {
-            channels::start_channels(config).await?;
+            channels::start_channels(config.clone()).await?;
         }
         return Ok(());
     }
@@ -1013,9 +1013,12 @@ async fn main() -> Result<()> {
         },
 
         Commands::Channel { channel_command } => match channel_command {
-            ChannelCommands::Start => channels::start_channels(config).await,
-            ChannelCommands::Doctor => channels::doctor_channels(config).await,
-            other => channels::handle_command(other, &config).await,
+            ChannelCommands::Start => channels::start_channels(config.clone()).await.map(|_| ()),
+            ChannelCommands::Doctor => channels::doctor_channels(config.clone()).await,
+            other => {
+                let _result = channels::handle_command(other.clone(), &config).await;
+                Ok(())
+            }
         },
 
         Commands::Integrations {
@@ -1889,7 +1892,7 @@ async fn run_test_mode() -> Result<()> {
                     diagnostic::DiagnosticStatus::Warn => "⚠",
                     diagnostic::DiagnosticStatus::Skip => "⊘",
                 };
-                println!("{} {}: {}", status, check.name, check.message);
+                println!("{} {}: {}", status, check.name, check.message.as_deref().unwrap_or(&"".to_string()));
                 if check.status == diagnostic::DiagnosticStatus::Fail {
                     all_passed = false;
                 }

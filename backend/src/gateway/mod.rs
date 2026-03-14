@@ -11,6 +11,9 @@ pub mod api;
 pub mod sse;
 pub mod static_files;
 pub mod ws;
+pub mod telegram_webhook;
+pub mod tma_auth;
+pub mod telegram_threads;
 
 use crate::channels::{
     Channel, LinqChannel, NextcloudTalkChannel, SendMessage, WatiChannel, WhatsAppChannel,
@@ -704,6 +707,15 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/cost", get(api::handle_api_cost))
         .route("/api/cli-tools", get(api::handle_api_cli_tools))
         .route("/api/health", get(api::handle_api_health))
+        // ── Telegram TMA (Zero-Bloat) ──
+        .route("/api/v1/telegram/webhook", post(telegram_webhook::handle_telegram_webhook))
+        .route("/api/v1/telegram/config/webhook", post(telegram_webhook::handle_telegram_webhook_config))
+        .route("/api/v1/telegram/tma/auth", post(tma_auth::handle_tma_auth))
+        .route("/api/v1/telegram/threads", get(telegram_threads::get_threads))
+        .route("/api/v1/telegram/threads", post(telegram_threads::create_thread))
+        .route("/api/v1/telegram/threads/{id}/skills", put(telegram_threads::update_thread_skills))
+        .route("/api/v1/telegram/threads/active", post(telegram_threads::set_active_thread))
+        .route("/api/v1/skills", get(telegram_threads::get_skills))
         // ── TUI Dashboard API routes ──
         .route("/api/chat", post(api::handle_tui_chat))
         .route("/api/agents/active", get(api::handle_tui_agents_active))
@@ -1914,6 +1926,7 @@ mod tests {
             channel: "whatsapp".into(),
             timestamp: 1,
             thread_ts: None,
+            active_skills: vec![],
         };
 
         let key = whatsapp_memory_key(&msg);

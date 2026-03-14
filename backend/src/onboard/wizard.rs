@@ -3623,6 +3623,7 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     draft_update_interval_ms: 1000,
                     interrupt_on_new_message: false,
                     mention_only: false,
+                    webhook_url: None,
                 });
             }
             ChannelMenuChoice::Discord => {

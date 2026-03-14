@@ -168,6 +168,7 @@ impl NextcloudTalkChannel {
             channel: "nextcloud_talk".to_string(),
             timestamp,
             thread_ts: None,
+            active_skills: vec![],
         });
 
         messages

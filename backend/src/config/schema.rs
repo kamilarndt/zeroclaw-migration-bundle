@@ -2435,6 +2435,10 @@ pub struct TelegramConfig {
     /// Direct messages are always processed.
     #[serde(default)]
     pub mention_only: bool,
+    /// Webhook URL for receiving updates (instead of polling).
+    /// When set, the bot will receive updates via this URL instead of long-polling.
+    #[serde(default)]
+    pub webhook_url: Option<String>,
 }
 
 impl ChannelConfig for TelegramConfig {

@@ -1,7 +1,7 @@
 // web/src/stores/__tests__/taskStore.test.ts
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useTaskStore } from '../taskStore'
+import { useTaskStore } from '@stores'
 import { TaskStatus, TaskPriority } from '@types'
 
 // Mock fetch
@@ -19,6 +19,8 @@ describe('taskStore', () => {
       error: null,
     })
     mockFetch.mockClear()
+    // Mock auth token in localStorage
+    localStorage.setItem('zeroclaw_token', 'mock-test-token-123')
   })
 
   afterEach(() => {

@@ -49,7 +49,9 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
                 max_backoff,
                 move || {
                     let cfg = channels_cfg.clone();
-                    async move { crate::channels::start_channels(cfg).await }
+                    async move {
+                        crate::channels::start_channels(cfg).await.map(|_| ())
+                    }
                 },
             ));
         } else {
