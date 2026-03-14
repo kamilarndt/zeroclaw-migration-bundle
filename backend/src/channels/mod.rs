@@ -33,6 +33,9 @@ pub mod qq;
 pub mod signal;
 pub mod slack;
 pub mod telegram;
+pub mod telegram_inline_keyboard;
+pub mod telegram_circuit_breaker;
+pub mod telegram_menu_button;
 pub mod traits;
 pub mod transcription;
 pub mod wati;
@@ -62,6 +65,11 @@ pub use signal::SignalChannel;
 pub use slack::SlackChannel;
 pub use telegram::TelegramChannel;
 pub use traits::{Channel, SendMessage};
+
+// Re-exporty dla wygody
+pub use telegram_inline_keyboard::{InlineKeyboard, InlineKeyboardButton, CallbackQuery, CallbackQueryMessage, CallbackAnswer};
+pub use telegram_circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
+pub use telegram_menu_button::{MenuButtonConfig};
 pub use wati::WatiChannel;
 pub use whatsapp::WhatsAppChannel;
 #[cfg(feature = "whatsapp-web")]
@@ -1729,6 +1737,7 @@ async fn process_channel_message(
 
     let timeout_budget_secs =
         channel_message_timeout_budget_secs(ctx.message_timeout_secs, ctx.max_tool_iterations);
+    // NOTE: Chunk 5 will wire msg.active_skills filtering here via load_skills_by_name
     let llm_result = tokio::select! {
         () = cancellation_token.cancelled() => LlmExecutionResult::Cancelled,
         result = tokio::time::timeout(
@@ -1754,6 +1763,7 @@ async fn process_channel_message(
                 } else {
                     ctx.non_cli_excluded_tools.as_slice()
                 },
+                None,
             ),
         ) => LlmExecutionResult::Completed(result),
     };
@@ -2420,6 +2430,36 @@ pub fn build_system_prompt_with_mode(
     }
 }
 
+/// Load skills by name from the global skill list.
+/// Returns only skills whose names match the provided list.
+/// If enabled_skills is empty, returns all skills (default behavior).
+pub fn load_skills_by_name(
+    all_skills: &[crate::skills::Skill],
+    enabled_skills: &[String],
+) -> Vec<crate::skills::Skill> {
+    if enabled_skills.is_empty() {
+        // No skills specified - return all (backward compatible)
+        return all_skills.to_vec();
+    }
+
+    all_skills
+        .iter()
+        .filter(|skill| enabled_skills.contains(&skill.name))
+        .cloned()
+        .collect()
+}
+
+// Cache all available skills to avoid repeated filesystem access
+static ALL_SKILLS: OnceLock<Vec<crate::skills::Skill>> = OnceLock::new();
+
+/// Get all skills, loading them once and caching the result.
+/// This avoids repeated filesystem access during message processing.
+fn get_all_skills(config: &Config) -> &[crate::skills::Skill] {
+    ALL_SKILLS.get_or_init(|| {
+        crate::skills::load_skills_with_config(&config.workspace_dir, config)
+    })
+}
+
 /// Inject a single workspace file into the prompt with truncation and missing-file markers.
 fn inject_workspace_file(
     prompt: &mut String,
@@ -2697,18 +2737,23 @@ fn collect_configured_channels(
     let mut channels = Vec::new();
 
     if let Some(ref tg) = config.channels_config.telegram {
+        let mut telegram_channel = TelegramChannel::new(
+            tg.bot_token.clone(),
+            tg.allowed_users.clone(),
+            tg.mention_only,
+        )
+        .with_streaming(tg.stream_mode, tg.draft_update_interval_ms)
+        .with_transcription(config.transcription.clone())
+        .with_workspace_dir(config.workspace_dir.clone());
+
+        // Add webhook URL if configured
+        if let Some(ref webhook_url) = tg.webhook_url {
+            telegram_channel = telegram_channel.with_webhook_url(webhook_url.clone());
+        }
+
         channels.push(ConfiguredChannel {
             display_name: "Telegram",
-            channel: Arc::new(
-                TelegramChannel::new(
-                    tg.bot_token.clone(),
-                    tg.allowed_users.clone(),
-                    tg.mention_only,
-                )
-                .with_streaming(tg.stream_mode, tg.draft_update_interval_ms)
-                .with_transcription(config.transcription.clone())
-                .with_workspace_dir(config.workspace_dir.clone()),
-            ),
+            channel: Arc::new(telegram_channel),
         });
     }
 
@@ -4135,6 +4180,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4194,6 +4240,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4267,6 +4314,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 3,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4326,6 +4374,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 2,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4394,6 +4443,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4483,6 +4533,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 2,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4554,6 +4605,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 3,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4640,6 +4692,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 4,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4711,6 +4764,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4771,6 +4825,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 2,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -4949,6 +5004,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel: "test-channel".to_string(),
             timestamp: 1,
             thread_ts: None,
+                active_skills: vec![],
         })
         .await
         .unwrap();
@@ -4960,6 +5016,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel: "test-channel".to_string(),
             timestamp: 2,
             thread_ts: None,
+                active_skills: vec![],
         })
         .await
         .unwrap();
@@ -5030,6 +5087,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             })
             .await
             .unwrap();
@@ -5042,6 +5100,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 2,
                 thread_ts: None,
+                active_skills: vec![],
             })
             .await
             .unwrap();
@@ -5122,6 +5181,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             })
             .await
             .unwrap();
@@ -5134,6 +5194,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 2,
                 thread_ts: None,
+                active_skills: vec![],
             })
             .await
             .unwrap();
@@ -5196,6 +5257,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -5255,6 +5317,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -5631,6 +5694,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel: "slack".into(),
             timestamp: 1,
             thread_ts: None,
+                active_skills: vec![],
         };
 
         assert_eq!(conversation_memory_key(&msg), "slack_U123_msg_abc123");
@@ -5646,6 +5710,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel: "slack".into(),
             timestamp: 1,
             thread_ts: None,
+                active_skills: vec![],
         };
         let msg2 = traits::ChannelMessage {
             id: "msg_2".into(),
@@ -5655,6 +5720,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel: "slack".into(),
             timestamp: 2,
             thread_ts: None,
+                active_skills: vec![],
         };
 
         assert_ne!(
@@ -5676,6 +5742,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel: "slack".into(),
             timestamp: 1,
             thread_ts: None,
+                active_skills: vec![],
         };
         let msg2 = traits::ChannelMessage {
             id: "msg_2".into(),
@@ -5685,6 +5752,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel: "slack".into(),
             timestamp: 2,
             thread_ts: None,
+                active_skills: vec![],
         };
 
         mem.store(
@@ -5771,6 +5839,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -5786,6 +5855,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 2,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -5856,6 +5926,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -5941,6 +6012,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel: "telegram".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -6491,6 +6563,7 @@ This is an example JSON object for profile settings."#;
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -6556,6 +6629,7 @@ This is an example JSON object for profile settings."#;
                 channel: "test-channel".to_string(),
                 timestamp: 1,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
@@ -6571,6 +6645,7 @@ This is an example JSON object for profile settings."#;
                 channel: "test-channel".to_string(),
                 timestamp: 2,
                 thread_ts: None,
+                active_skills: vec![],
             },
             CancellationToken::new(),
         )
