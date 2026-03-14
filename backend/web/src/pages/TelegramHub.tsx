@@ -43,7 +43,15 @@ export default function TelegramHub() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = window.location.origin; // Uses dash.karndt.pl through tunnel
+  // Get the base URL without the Vite base path for API calls
+  // Remove the /_app base path from window.location to get API base
+  const getApiBase = () => {
+    const url = window.location;
+    // Remove /_app from pathname if present
+    const basePath = url.pathname.replace(/^\/_app\/.*$/, '') || '/';
+    return `${url.protocol}//${url.host}${basePath}`.replace(/\/$/, '');
+  };
+  const API_BASE = getApiBase();
 
   useEffect(() => {
     // Initialize Telegram WebApp

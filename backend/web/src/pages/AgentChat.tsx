@@ -53,14 +53,13 @@ export default function AgentChat() {
           const content = msg.full_response ?? msg.content ?? pendingContentRef.current;
           if (content) {
             setMessages((prev) => {
-              const updated = [...prev,
-              {
-                id: crypto.randomUUID(),
+              const newMessage: ChatMessage = {
+                id: crypto.randomUUID() as string,
                 role: 'agent',
                 content,
                 timestamp: new Date(),
-              },
-            ];
+              };
+              const updated = [...prev, newMessage];
               // Implement sliding window: remove oldest message if limit exceeded
               if (updated.length > MAX_CHAT_MESSAGES) {
                 updated.shift(); // Remove oldest message to prevent memory leak
@@ -75,14 +74,13 @@ export default function AgentChat() {
 
         case 'tool_call':
           setMessages((prev) => {
-            const updated = [...prev,
-            {
-              id: crypto.randomUUID(),
+            const newMessage: ChatMessage = {
+              id: crypto.randomUUID() as string,
               role: 'agent',
               content: `[Tool Call] ${msg.name ?? 'unknown'}(${JSON.stringify(msg.args ?? {})})`,
               timestamp: new Date(),
-            },
-          ];
+            };
+            const updated = [...prev, newMessage];
             // Implement sliding window: remove oldest message if limit exceeded
             if (updated.length > MAX_CHAT_MESSAGES) {
               updated.shift(); // Remove oldest message to prevent memory leak
@@ -93,14 +91,13 @@ export default function AgentChat() {
 
         case 'tool_result':
           setMessages((prev) => {
-            const updated = [...prev,
-            {
-              id: crypto.randomUUID(),
+            const newMessage: ChatMessage = {
+              id: crypto.randomUUID() as string,
               role: 'agent',
               content: `[Tool Result] ${msg.output ?? ''}`,
               timestamp: new Date(),
-            },
-          ];
+            };
+            const updated = [...prev, newMessage];
             // Implement sliding window: remove oldest message if limit exceeded
             if (updated.length > MAX_CHAT_MESSAGES) {
               updated.shift(); // Remove oldest message to prevent memory leak
@@ -111,14 +108,13 @@ export default function AgentChat() {
 
         case 'error':
           setMessages((prev) => {
-            const updated = [...prev,
-            {
-              id: crypto.randomUUID(),
+            const newMessage: ChatMessage = {
+              id: crypto.randomUUID() as string,
               role: 'agent',
               content: `[Error] ${msg.message ?? 'Unknown error'}`,
               timestamp: new Date(),
-            },
-          ];
+            };
+            const updated = [...prev, newMessage];
             // Implement sliding window: remove oldest message if limit exceeded
             if (updated.length > MAX_CHAT_MESSAGES) {
               updated.shift(); // Remove oldest message to prevent memory leak
@@ -148,14 +144,13 @@ export default function AgentChat() {
     if (!trimmed || !wsRef.current?.connected) return;
 
     setMessages((prev) => {
-      const updated = [...prev,
-      {
-        id: crypto.randomUUID(),
+      const newMessage: ChatMessage = {
+        id: crypto.randomUUID() as string,
         role: 'user',
         content: trimmed,
         timestamp: new Date(),
-      },
-    ];
+      };
+      const updated = [...prev, newMessage];
       // Implement sliding window: remove oldest message if limit exceeded
       if (updated.length > MAX_CHAT_MESSAGES) {
         updated.shift(); // Remove oldest message to prevent memory leak
