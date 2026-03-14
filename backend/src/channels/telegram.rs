@@ -1,4 +1,7 @@
 use super::traits::{Channel, ChannelMessage, SendMessage};
+use super::telegram_inline_keyboard::{InlineKeyboard, InlineKeyboardButton, CallbackQuery, CallbackQueryMessage, CallbackAnswer};
+use super::telegram_circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
+use super::telegram_menu_button::{MenuButtonConfig};
 use crate::config::{Config, StreamMode};
 use crate::security::pairing::PairingGuard;
 use anyhow::Context;
@@ -10,6 +13,11 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::fs;
+use tokio::sync::mpsc;
+use std::sync::OnceLock;
+
+// TMA Hub thread integration
+use crate::gateway::telegram_threads::{get_thread_id_for_telegram_chat, get_skills_for_telegram_chat};
 
 /// Telegram's maximum message length for text messages
 const TELEGRAM_MAX_MESSAGE_LENGTH: usize = 4096;
@@ -35,6 +43,61 @@ enum IncomingAttachmentKind {
     Photo,
 }
 const TELEGRAM_BIND_COMMAND: &str = "/bind";
+
+// ============================================================
+// GLOBAL WEBHOOK RECEIVER (Zero-Bloat)
+// ============================================================
+
+/// Global webhook update receiver - shared between webhook endpoint and telegram channel
+type WebhookUpdateSender = mpsc::UnboundedSender<serde_json::Value>;
+type WebhookUpdateReceiver = mpsc::UnboundedReceiver<serde_json::Value>;
+
+static WEBHOOK_RECEIVER: OnceLock<WebhookUpdateSender> = OnceLock::new();
+
+/// Initialize the global webhook receiver
+fn init_webhook_receiver() -> WebhookUpdateSender {
+    let (tx, _rx) = mpsc::unbounded_channel();
+    WEBHOOK_RECEIVER.get_or_init(|| tx).clone()
+}
+
+/// Send a webhook update to the telegram channel
+pub fn send_webhook_update(update: serde_json::Value) -> anyhow::Result<()> {
+    let tx = WEBHOOK_RECEIVER.get()
+        .ok_or_else(|| anyhow::anyhow!("Webhook receiver not initialized"))?;
+    tx.send(update)
+        .map_err(|e| anyhow::anyhow!("Failed to send webhook update: {}", e))
+}
+
+/// Get the webhook receiver for the telegram channel
+pub fn take_webhook_receiver() -> Option<WebhookUpdateReceiver> {
+    // This will be called by the telegram channel to get the receiver
+    // Note: This can only be called once per channel instance
+    None // Placeholder - actual implementation in the channel
+}
+
+// ============================================================
+// KROK 2: TMA (MINI APPS) AUTH STRUCTURES (Zero-Bloat)
+// ============================================================
+
+/// Telegram WebApp initData structure
+#[derive(Debug, Clone)]
+pub struct TelegramWebAppInitData {
+    pub query_id: Option<String>,
+    pub user: Option<TelegramWebAppUser>,
+    pub auth_date: i64,
+    pub hash: String,
+}
+
+/// Telegram user from WebApp initData
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct TelegramWebAppUser {
+    pub id: i64,
+    pub first_name: String,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub language_code: Option<String>,
+}
 
 /// Split a message into chunks that respect Telegram's 4096 character limit.
 /// Tries to split at word boundaries when possible, and handles continuation.
@@ -239,9 +302,46 @@ fn parse_path_only_attachment(message: &str) -> Option<TelegramAttachment> {
     })
 }
 
-/// Delegate to the shared `strip_tool_call_tags` in the parent module.
-fn strip_tool_call_tags(message: &str) -> String {
-    super::strip_tool_call_tags(message)
+/// Strip tool call tags from a message.
+/// Removes <tool>...</tool>, <toolcall>...</toolcall>, and other tool-related tags.
+pub fn strip_tool_call_tags(message: &str) -> String {
+    let mut result = message.to_string();
+    let patterns = [
+        ("<tool>", "</tool>"),
+        ("<toolcall>", "</toolcall>"),
+        ("<invoke>", "</invoke>"),
+        ("</tool:name>", ""),  // Handle closing tags separately
+    ];
+
+    // Remove content between <tool>...</tool> tags
+    while let Some(start) = result.find("<tool>") {
+        if let Some(end) = result[start..].find("</tool>") {
+            result.replace_range(start..start + end + 7, "");
+        } else {
+            break;
+        }
+    }
+
+    // Remove content between <toolcall>...</toolcall> tags
+    while let Some(start) = result.find("<toolcall>") {
+        if let Some(end) = result[start..].find("</toolcall>") {
+            result.replace_range(start..start + end + 11, "");
+        } else {
+            break;
+        }
+    }
+
+    // Remove content between <invoke>...</invoke> tags
+    while let Some(start) = result.find("<invoke>") {
+        if let Some(end) = result[start..].find("</invoke>") {
+            result.replace_range(start..start + end + 9, "");
+        } else {
+            break;
+        }
+    }
+
+    // Clean up extra whitespace
+    result.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn parse_attachment_markers(message: &str) -> (String, Vec<TelegramAttachment>) {
@@ -311,6 +411,15 @@ pub struct TelegramChannel {
     transcription: Option<crate::config::TranscriptionConfig>,
     voice_transcriptions: Mutex<std::collections::HashMap<String, String>>,
     workspace_dir: Option<std::path::PathBuf>,
+    // KROK 1: Webhook Support (Zero-Bloat)
+    webhook_url: Option<String>,
+    use_webhook: bool,
+    // KROK 2: TMA Auth & Circuit Breaker (Zero-Bloat)
+    query_id: Option<String>,
+    user: Option<TelegramWebAppUser>,
+    circuit_breaker: Option<std::sync::Arc<super::telegram_circuit_breaker::CircuitBreaker>>,
+    menu_button_url: Option<String>,
+    menu_button_text: Option<String>,
 }
 
 impl TelegramChannel {
@@ -342,6 +451,15 @@ impl TelegramChannel {
             transcription: None,
             voice_transcriptions: Mutex::new(std::collections::HashMap::new()),
             workspace_dir: None,
+            // KROK 1: Webhook Support (Zero-Bloat)
+            webhook_url: None,
+            use_webhook: false,
+            // KROK 2: TMA Auth & Circuit Breaker (Zero-Bloat)
+            query_id: None,
+            user: None,
+            circuit_breaker: None,
+            menu_button_url: None,
+            menu_button_text: None,
         }
     }
 
@@ -359,6 +477,13 @@ impl TelegramChannel {
     ) -> Self {
         self.stream_mode = stream_mode;
         self.draft_update_interval_ms = draft_update_interval_ms;
+        self
+    }
+
+    /// Set webhook URL for receiving updates instead of polling
+    pub fn with_webhook_url(mut self, webhook_url: String) -> Self {
+        self.webhook_url = Some(webhook_url);
+        self.use_webhook = true;
         self
     }
 
@@ -384,6 +509,20 @@ impl TelegramChannel {
         } else {
             (reply_target.to_string(), None)
         }
+    }
+
+    fn parse_callback_query(update: &serde_json::Value) -> Option<ChannelMessage> {
+        if let Some(callback_query) = update.get("callback_query") {
+            let query_id = callback_query["id"].as_str().unwrap_or("");
+            let data = callback_query.get("data").and_then(|v| v.as_str());
+
+            tracing::debug!("Received callback query: {} - data: {:?}", query_id, data);
+
+            // TODO: Process callback data (e.g., "action:toggle_skill:rust")
+            // Currently just log and ignore
+            return None;
+        }
+        None
     }
 
     fn extract_update_message_target(update: &serde_json::Value) -> Option<(String, i64)> {
@@ -1032,6 +1171,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
                 .unwrap_or_default()
                 .as_secs(),
             thread_ts: thread_id,
+            active_skills: vec![],
         })
     }
 
@@ -1149,6 +1289,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
                 .unwrap_or_default()
                 .as_secs(),
             thread_ts: thread_id,
+            active_skills: vec![],
         })
     }
 
@@ -1305,6 +1446,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
                 .unwrap_or_default()
                 .as_secs(),
             thread_ts: thread_id,
+            active_skills: vec![],
         })
     }
 
@@ -2451,11 +2593,104 @@ impl Channel for TelegramChannel {
     }
 
     async fn listen(&self, tx: tokio::sync::mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
-        let mut offset: i64 = 0;
-
         if self.mention_only {
             let _ = self.get_bot_username().await;
         }
+
+        // WEBHOOK MODE: If webhook_url is set, use webhook receiver instead of polling
+        if self.webhook_url.is_some() {
+            tracing::info!("🔌 Telegram channel using WEBHOOK mode");
+            return self.listen_webhook(tx).await;
+        }
+
+        // POLLING MODE: Traditional long-polling
+        tracing::info!("📡 Telegram channel using POLLING mode");
+        self.listen_polling(tx).await
+    }
+}
+
+/// Webhook mode: Consume updates from the global webhook receiver
+impl TelegramChannel {
+    async fn listen_webhook(&self, tx: tokio::sync::mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
+        tracing::info!("📨 Telegram webhook receiver started");
+
+        // Get the webhook receiver side of the global channel
+        let mut webhook_rx = {
+            let (webhook_tx, webhook_rx) = mpsc::unbounded_channel::<serde_json::Value>();
+            // Store the sender globally for the webhook endpoint to use
+            let _ = WEBHOOK_RECEIVER.set(webhook_tx);
+            webhook_rx
+        };
+
+        tracing::info!("✅ Webhook receiver ready, waiting for updates...");
+
+        // Process webhook updates as they arrive
+        while let Some(update) = webhook_rx.recv().await {
+            tracing::info!("📨 Received webhook update in telegram channel");
+
+            // Process the update similar to how polling mode does
+            let mut msg = if let Some(m) = self.parse_update_message(&update) {
+                m
+            } else if let Some(m) = self.try_parse_voice_message(&update).await {
+                m
+            } else if let Some(m) = self.try_parse_attachment_message(&update).await {
+                m
+            } else if let Some(m) = Self::parse_callback_query(&update) {
+                // Callback queries are processed but don't generate ChannelMessage
+                m
+            } else {
+                self.handle_unauthorized_message(&update).await;
+                continue;
+            };
+
+            // 🔄 TMA HUB INTEGRATION: Look up TMA Hub thread for this chat
+            // Extract chat_id from reply_target (format: "chat_id" or "chat_id:thread_id")
+            let chat_id_for_thread = msg.reply_target.split(':').next().unwrap_or(&msg.reply_target);
+            if let Some(tma_thread_id) = get_thread_id_for_telegram_chat(chat_id_for_thread).await {
+                tracing::info!("📌 TMA Hub: Using thread {} for chat {}", tma_thread_id, chat_id_for_thread);
+                msg.thread_ts = Some(tma_thread_id.clone());
+
+                // Fetch enabled skills for this thread
+                let enabled_skills = get_skills_for_telegram_chat(chat_id_for_thread).await;
+                msg.active_skills = enabled_skills;
+                if !msg.active_skills.is_empty() {
+                    tracing::info!("🛠️ TMA Hub: Enabled skills: {:?}", msg.active_skills);
+                }
+            }
+
+            if let Some((reaction_chat_id, reaction_message_id)) =
+                Self::extract_update_message_target(&update)
+            {
+                self.try_add_ack_reaction_nonblocking(
+                    reaction_chat_id,
+                    reaction_message_id,
+                );
+            }
+
+            // Send "typing" indicator
+            let typing_body = serde_json::json!({
+                "chat_id": &msg.reply_target,
+                "action": "typing"
+            });
+            let _ = self
+                .http_client()
+                .post(self.api_url("sendChatAction"))
+                .json(&typing_body)
+                .send()
+                .await;
+
+            if tx.send(msg).await.is_err() {
+                tracing::warn!("Failed to send message to channel");
+                return Ok(());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Polling mode: Traditional long-polling for updates
+    async fn listen_polling(&self, tx: tokio::sync::mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
+        let mut offset: i64 = 0;
 
         tracing::info!("Telegram channel listening for messages...");
 
@@ -2469,7 +2704,7 @@ impl Channel for TelegramChannel {
             let probe = serde_json::json!({
                 "offset": offset,
                 "timeout": 0,
-                "allowed_updates": ["message"]
+                "allowed_updates": ["message", "callback_query"]
             });
             match self.http_client().post(&url).json(&probe).send().await {
                 Err(e) => {
@@ -2542,7 +2777,7 @@ impl Channel for TelegramChannel {
             let body = serde_json::json!({
                 "offset": offset,
                 "timeout": 30,
-                "allowed_updates": ["message"]
+                "allowed_updates": ["message", "callback_query"]
             });
 
             let resp = match self.http_client().post(&url).json(&body).send().await {
@@ -2609,10 +2844,30 @@ Ensure only one `zeroclaw` process is using this bot token."
                         m
                     } else if let Some(m) = self.try_parse_attachment_message(update).await {
                         m
+                    } else if let Some(m) = Self::parse_callback_query(update) {
+                        // KROK 2: CALLBACK QUERY HANDLING (Zero-Bloat)
+                        // Callback queries are processed but don't generate ChannelMessage
+                        // They trigger inline button responses
+                        m
                     } else {
                         self.handle_unauthorized_message(update).await;
                         continue;
                     };
+
+                    // 🔄 TMA HUB INTEGRATION: Look up TMA Hub thread for this chat
+                    let mut msg = msg;
+                    let chat_id_for_thread = msg.reply_target.split(':').next().unwrap_or(&msg.reply_target);
+                    if let Some(tma_thread_id) = get_thread_id_for_telegram_chat(chat_id_for_thread).await {
+                        tracing::info!("📌 TMA Hub: Using thread {} for chat {}", tma_thread_id, chat_id_for_thread);
+                        msg.thread_ts = Some(tma_thread_id.clone());
+
+                        // Fetch enabled skills for this thread
+                        let enabled_skills = get_skills_for_telegram_chat(chat_id_for_thread).await;
+                        msg.active_skills = enabled_skills;
+                        if !msg.active_skills.is_empty() {
+                            tracing::info!("🛠️ TMA Hub: Enabled skills: {:?}", msg.active_skills);
+                        }
+                    }
 
                     if let Some((reaction_chat_id, reaction_message_id)) =
                         Self::extract_update_message_target(update)
@@ -2688,13 +2943,303 @@ Ensure only one `zeroclaw` process is using this bot token."
 
         Ok(())
     }
+}
 
-    async fn stop_typing(&self, _recipient: &str) -> anyhow::Result<()> {
+// ============================================================
+// TELEGRAM CHANNEL EXTENSION METHODS (Zero-Bloat)
+// ============================================================
+// These are NOT part of the Channel trait - they are Telegram-specific
+// extensions for webhook, TMA auth, inline keyboards, and circuit breaker.
+// ============================================================
+
+impl TelegramChannel {
+    // ============================================================
+    // KROK 1: WEBHOOK SUPPORT (Zero-Bloat)
+    // ============================================================
+
+    pub fn with_webhook(mut self, url: Option<String>) -> Self {
+        self.use_webhook = url.is_some();
+        self.webhook_url = url;
+        self
+    }
+
+    pub fn is_webhook_enabled(&self) -> bool {
+        self.use_webhook
+    }
+
+    pub async fn setup_webhook(&self) -> anyhow::Result<()> {
+        if let Some(ref webhook_url) = self.webhook_url {
+            let secret = self.webhook_secret();
+
+            let body = serde_json::json!({
+                "url": webhook_url,
+                "secret_token": secret,
+                "max_connections": 100,
+            });
+
+            let resp = self.http_client()
+                .post(self.api_url("setWebhook"))
+                .json(&body)
+                .send()
+                .await?;
+
+            if !resp.status().is_success() {
+                let error_text = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                anyhow::bail!("Failed to set webhook: {}", error_text);
+            }
+
+            tracing::info!("✅ Webhook set: {} with secret: {}", webhook_url, secret);
+        } else {
+            tracing::warn!("Webhook URL not configured, using long polling");
+        }
+
+        Ok(())
+    }
+
+    pub async fn delete_webhook(&self) -> anyhow::Result<()> {
+        let resp = self.http_client()
+            .post(self.api_url("deleteWebhook"))
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            anyhow::bail!("Failed to delete webhook");
+        }
+
+        tracing::info!("✅ Webhook deleted");
+        Ok(())
+    }
+
+    pub fn webhook_secret(&self) -> String {
+        use sha2::{Sha256, Digest};
+        use chrono::Utc;
+
+        let timestamp = Utc::now().timestamp();
+        let mut hasher = Sha256::new();
+        hasher.update(self.bot_token.as_bytes());
+        hasher.update(timestamp.to_be_bytes());
+        format!("webhook_{}", hex::encode(hasher.finalize()))
+    }
+
+    pub async fn verify_webhook_secret(&self, headers: &reqwest::header::HeaderMap) -> bool {
+        if let Some(secret_header) = headers.get("x-telegram-bot-api-secret-token") {
+            if let Ok(secret_str) = secret_header.to_str() {
+                let expected_secret = self.webhook_secret();
+                return secret_str == expected_secret;
+            }
+        }
+        false
+    }
+
+    // ============================================================
+    // KROK 2: TMA (MINI APPS) AUTHENTICATION (Zero-Bloat)
+    // ============================================================
+
+    /// Verify Telegram WebApp initData for secure authentication
+    pub fn verify_webapp_initdata(&self, init_data: &str) -> anyhow::Result<TelegramWebAppInitData> {
+        use std::collections::HashMap;
+        use serde_urlencoded::from_str;
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+
+        type HmacSha256 = Hmac<Sha256>;
+
+        // Parse URL-encoded initData
+        let params: HashMap<String, String> = from_str(init_data)
+            .map_err(|e| anyhow::anyhow!("Failed to parse initData: {}", e))?;
+
+        // Extract hash
+        let hash = params.get("hash")
+            .ok_or_else(|| anyhow::anyhow!("Missing hash parameter"))?;
+
+        // Create data check string
+        let data_check_string = Self::create_data_check_string(&params);
+
+        // Verify HMAC-SHA256
+        // Create secret key: HMAC-SHA256(bot_token, "WebAppData")
+        let mut secret_key_mac = HmacSha256::new_from_slice(self.bot_token.as_bytes())
+            .map_err(|e| anyhow::anyhow!("HMAC error: {}", e))?;
+        secret_key_mac.update(b"WebAppData");
+        let secret_key = secret_key_mac.finalize().into_bytes();
+
+        // Compute expected hash: HMAC-SHA256(secret_key, data_check_string)
+        let mut hash_mac = HmacSha256::new_from_slice(&secret_key)
+            .map_err(|e| anyhow::anyhow!("HMAC error: {}", e))?;
+        hash_mac.update(data_check_string.as_bytes());
+        let expected_hash = hex::encode(hash_mac.finalize().into_bytes());
+
+        if hash != &expected_hash {
+            anyhow::bail!("Invalid initData signature");
+        }
+
+        // Verify auth_date (anti-replay, max 5 minutes old)
+        if let Some(auth_date_str) = params.get("auth_date") {
+            if let Ok(auth_timestamp) = auth_date_str.parse::<i64>() {
+                use chrono::Utc;
+                let current_time = Utc::now().timestamp();
+                let max_age = 300; // 5 minutes
+
+                if (current_time - auth_timestamp).abs() > max_age {
+                    anyhow::bail!("initData too old (replay attack protection)");
+                }
+            }
+        }
+
+        // Parse user
+        let user_json = params.get("user")
+            .ok_or_else(|| anyhow::anyhow!("Missing user parameter"))?;
+
+        let user: TelegramWebAppUser = serde_json::from_str(user_json)
+            .map_err(|e| anyhow::anyhow!("Failed to parse user: {}", e))?;
+
+        Ok(TelegramWebAppInitData {
+            query_id: params.get("query_id").cloned(),
+            user: Some(user),
+            auth_date: params.get("auth_date").and_then(|d| d.parse().ok()).unwrap_or(0),
+            hash: hash.clone(),
+        })
+    }
+
+    pub fn create_data_check_string(params: &std::collections::HashMap<String, String>) -> String {
+        let mut sorted: Vec<_> = params.iter()
+            .filter(|(k, _)| *k != "hash")
+            .collect();
+        sorted.sort_by_key(|(k, _)| *k);
+
+        sorted.iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    pub async fn stop_typing(&self, _recipient: &str) -> anyhow::Result<()> {
         let mut guard = self.typing_handle.lock();
         if let Some(handle) = guard.take() {
             handle.abort();
         }
         Ok(())
+    }
+
+    // ============================================================
+    // KROK 2: INLINE KEYBOARDS (Zero-Bloat)
+    // ============================================================
+
+    /// Send message with inline keyboard
+    pub async fn send_with_keyboard(
+        &self,
+        chat_id: &str,
+        text: &str,
+        keyboard: &InlineKeyboard,
+    ) -> anyhow::Result<i64> {
+        let body = serde_json::json!({
+            "chat_id": chat_id,
+            "text": text,
+            "reply_markup": keyboard,
+        });
+
+        let resp = self
+            .client
+            .post(self.api_url("sendMessage"))
+            .json(&body)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            anyhow::bail!("Failed to send with keyboard: {:?}", resp.text().await);
+        }
+
+        let json: serde_json::Value = resp.json().await?;
+        Ok(json["result"]["message_id"].as_i64().unwrap_or(0))
+    }
+
+    /// Answer callback query
+    pub async fn answer_callback_query(
+        &self,
+        query_id: &str,
+        text: Option<&str>,
+        show_alert: bool,
+    ) -> anyhow::Result<()> {
+        let body = serde_json::json!({
+            "callback_query_id": query_id,
+            "text": text,
+            "show_alert": show_alert,
+        });
+
+        let resp = self
+            .client
+            .post(self.api_url("answerCallbackQuery"))
+            .json(&body)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            anyhow::bail!("Failed to answer callback: {:?}", resp.text().await);
+        }
+
+        Ok(())
+    }
+
+    // ============================================================
+    // KROK 2: MENU BUTTON (Zero-Bloat)
+    // ============================================================
+
+    /// Setup menu button for Telegram
+    pub async fn setup_menu_button(&self) -> anyhow::Result<()> {
+        let Some(url) = &self.menu_button_url else {
+            tracing::info!("Menu button URL not configured");
+            return Ok(());
+        };
+
+        let Some(text) = &self.menu_button_text else {
+            tracing::info!("Menu button text not configured");
+            return Ok(());
+        };
+
+        let body = serde_json::json!({
+            "text": text,
+            "url": url,
+        });
+
+        let resp = self
+            .client
+            .post(self.api_url("setChatMenuButton"))
+            .json(&body)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            anyhow::bail!("Failed to set menu button: {:?}", resp.text().await);
+        }
+
+        tracing::info!("Menu button set: {} -> {}", text, url);
+        Ok(())
+    }
+
+    // ============================================================
+    // KROK 2: CIRCUIT BREAKER HELPERS (Zero-Bloat)
+    // ============================================================
+
+    /// Check if circuit breaker allows request
+    pub fn check_circuit_breaker(&self) -> bool {
+        if let Some(cb) = &self.circuit_breaker {
+            CircuitBreaker::allow_request(cb)
+        } else {
+            true
+        }
+    }
+
+    /// Record circuit breaker success
+    pub fn record_circuit_breaker_success(&self) {
+        if let Some(cb) = &self.circuit_breaker {
+            CircuitBreaker::record_success(cb);
+        }
+    }
+
+    /// Record circuit breaker failure
+    pub fn record_circuit_breaker_failure(&self) {
+        if let Some(cb) = &self.circuit_breaker {
+            CircuitBreaker::record_failure(cb);
+        }
     }
 }
 
