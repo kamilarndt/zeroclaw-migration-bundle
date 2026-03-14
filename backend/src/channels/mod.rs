@@ -232,6 +232,7 @@ struct ChannelRuntimeContext {
     multimodal: crate::config::MultimodalConfig,
     hooks: Option<Arc<crate::hooks::HookRunner>>,
     non_cli_excluded_tools: Arc<Vec<String>>,
+    all_skills: Arc<Vec<crate::skills::Skill>>,
 }
 
 #[derive(Clone)]
@@ -1737,7 +1738,18 @@ async fn process_channel_message(
 
     let timeout_budget_secs =
         channel_message_timeout_budget_secs(ctx.message_timeout_secs, ctx.max_tool_iterations);
-    // NOTE: Chunk 5 will wire msg.active_skills filtering here via load_skills_by_name
+
+    // Filter skills based on thread's active skills
+    let filtered_skills: Vec<crate::skills::Skill> = load_skills_by_name(
+        &ctx.all_skills,
+        &msg.active_skills,
+    );
+    let thread_skills_ref: Option<&[crate::skills::Skill]> = if filtered_skills.is_empty() {
+        None
+    } else {
+        Some(&filtered_skills)
+    };
+
     let llm_result = tokio::select! {
         () = cancellation_token.cancelled() => LlmExecutionResult::Cancelled,
         result = tokio::time::timeout(
@@ -1763,7 +1775,7 @@ async fn process_channel_message(
                 } else {
                     ctx.non_cli_excluded_tools.as_slice()
                 },
-                None,
+                thread_skills_ref,
             ),
         ) => LlmExecutionResult::Completed(result),
     };
@@ -2447,17 +2459,6 @@ pub fn load_skills_by_name(
         .filter(|skill| enabled_skills.contains(&skill.name))
         .cloned()
         .collect()
-}
-
-// Cache all available skills to avoid repeated filesystem access
-static ALL_SKILLS: OnceLock<Vec<crate::skills::Skill>> = OnceLock::new();
-
-/// Get all skills, loading them once and caching the result.
-/// This avoids repeated filesystem access during message processing.
-fn get_all_skills(config: &Config) -> &[crate::skills::Skill] {
-    ALL_SKILLS.get_or_init(|| {
-        crate::skills::load_skills_with_config(&config.workspace_dir, config)
-    })
 }
 
 /// Inject a single workspace file into the prompt with truncation and missing-file markers.
@@ -3379,6 +3380,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
             None
         },
         non_cli_excluded_tools: Arc::new(config.autonomy.non_cli_excluded_tools.clone()),
+        all_skills: Arc::new(skills),
     });
 
     run_message_dispatch_loop(rx, runtime_ctx, max_in_flight_messages).await;

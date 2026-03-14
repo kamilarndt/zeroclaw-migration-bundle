@@ -1825,6 +1825,7 @@ pub(crate) async fn agent_turn(
         None,
         None,
         &[],
+        None,
     )
     .await
 }
@@ -1861,12 +1862,30 @@ pub async fn run_tool_call_loop(
     on_delta: Option<tokio::sync::mpsc::Sender<String>>,
     hooks: Option<&crate::hooks::HookRunner>,
     excluded_tools: &[String],
+    thread_skills: Option<&[crate::skills::Skill]>,
 ) -> Result<String> {
     let max_iterations = if max_tool_iterations == 0 {
         DEFAULT_MAX_TOOL_ITERATIONS
     } else {
         max_tool_iterations
     };
+
+    // Inject thread-specific skills into the system prompt if provided
+    if let Some(skills) = thread_skills {
+        if !skills.is_empty() {
+            // Append thread skills to the existing system prompt (first message in history)
+            if let Some(system_msg) = history.first_mut() {
+                let skills_prompt = crate::skills::skills_to_prompt_with_mode(
+                    skills,
+                    &std::path::Path::new("."), // Workspace dir not available here, skills should have absolute paths
+                    crate::config::SkillsPromptInjectionMode::Full,
+                );
+                if !skills_prompt.is_empty() {
+                    system_msg.content = format!("{}\n\n{}", system_msg.content, skills_prompt);
+                }
+            }
+        }
+    }
 
     let tool_specs: Vec<crate::tools::ToolSpec> = tools_registry
         .iter()
@@ -2816,6 +2835,7 @@ pub async fn run(
             None,
             None,
             &[],
+            None,
         )
         .await?;
         final_output = response.clone();
@@ -2938,6 +2958,7 @@ pub async fn run(
                 None,
                 None,
                 &[],
+                None,
             )
             .await
             {
@@ -3483,6 +3504,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect_err("provider without vision support should fail");
@@ -3529,6 +3551,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect_err("oversized payload must fail");
@@ -3569,6 +3592,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("valid multimodal payload should pass");
@@ -3695,6 +3719,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("parallel execution should complete");
@@ -3764,6 +3789,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("loop should finish after deduplicating repeated calls");
@@ -3820,6 +3846,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("native fallback id flow should complete");
