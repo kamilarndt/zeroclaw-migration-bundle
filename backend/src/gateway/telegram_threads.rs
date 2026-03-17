@@ -84,7 +84,7 @@ pub struct SkillResponse {
 }
 
 /// Get available skills for TMA
-pub async fn get_skills() -> impl IntoResponse {
+pub async fn get_available_skills() -> impl IntoResponse {
     // Return a hardcoded list of available skills for now
     // TODO: Load from ~/.zeroclaw/workspace/skills/
     let skills = vec![
