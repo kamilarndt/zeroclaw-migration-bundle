@@ -8,6 +8,16 @@ use std::time::{Duration, SystemTime};
 
 mod audit;
 
+// New v2.0 skills modules
+pub mod engine;
+pub mod loader;
+pub mod evaluator;
+
+// Re-export main types for convenience
+pub use engine::{SkillsEngine, Skill, SkillSearchResult, SkillsConfig};
+pub use loader::{SkillLoader, VectorSkillLoader};
+pub use evaluator::{SkillEvaluator, EvalResult, EvalType};
+
 const OPEN_SKILLS_REPO_URL: &str = "https://github.com/besoeasy/open-skills";
 const OPEN_SKILLS_SYNC_MARKER: &str = ".zeroclaw-open-skills-sync";
 const OPEN_SKILLS_SYNC_INTERVAL_SECS: u64 = 60 * 60 * 24 * 7;
