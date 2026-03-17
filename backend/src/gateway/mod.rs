@@ -14,6 +14,7 @@ pub mod ws;
 pub mod telegram_webhook;
 pub mod tma_auth;
 pub mod telegram_threads;
+pub mod openai_compat;
 
 use crate::channels::{
     Channel, LinqChannel, NextcloudTalkChannel, SendMessage, WatiChannel, WhatsAppChannel,
@@ -745,6 +746,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/events", get(sse::handle_sse_events))
         // ── WebSocket agent chat ──
         .route("/ws/chat", get(ws::handle_ws_chat))
+        // ── OpenAI-compatible API routes ──
+        .route("/v1/chat/completions", post(openai_compat::handle_v1_chat_completions))
+        .route("/v1/models", get(openai_compat::handle_v1_models))
         // ── Static assets (web dashboard) ──
         .route("/_app/{*path}", get(static_files::handle_static))
         // ── Config PUT with larger body limit ──
