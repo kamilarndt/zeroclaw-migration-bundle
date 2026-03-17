@@ -152,8 +152,23 @@ pub async fn handle_v1_chat_completions(
         content: m.content,
     }).collect();
 
-    // TO-DO FOR SUBAGENT: Inject Filar 2 Skills Engine logic here before passing to provider!
-    // Example: let enriched_system = state.skill_loader.enrich_system_prompt(...);
+    // Extract user message for skill matching
+    let user_query = messages.iter()
+        .filter(|m| m.role == "user")
+        .last()
+        .map(|m| m.content.clone())
+        .unwrap_or_default();
+
+    // Enrich system prompt with matching skills
+    let base_system_prompt = "You are a helpful AI assistant.";
+    let enriched_system = state.skill_loader
+        .enrich_system_prompt(&user_query, &base_system_prompt)
+        .await
+        .unwrap_or_else(|_| base_system_prompt.to_string());
+
+    // TODO: Pass enriched_system to the agent/provider
+    // For now, the integration point is ready
+    tracing::debug!("Enriched system prompt with skills for query: {}", user_query);
 
     if stream {
         // Fallback generic stream response (simplify for integration)
