@@ -21,7 +21,7 @@ use crate::channels::{
 };
 use crate::config::Config;
 use crate::cost::CostTracker;
-use crate::memory::{self, Memory, MemoryCategory};
+use crate::memory::{self, Memory, MemoryCategory, QdrantMemory};
 use crate::providers::{self, ChatMessage, Provider};
 use crate::runtime;
 use crate::security::pairing::{constant_time_eq, is_public_bind, PairingGuard};
@@ -29,6 +29,7 @@ use crate::security::SecurityPolicy;
 use crate::tools;
 use crate::tools::traits::ToolSpec;
 use crate::util::truncate_with_ellipsis;
+use crate::skills::{SkillsEngine, VectorSkillLoader, SkillEvaluator};
 use anyhow::{Context, Result};
 use axum::{
     body::Bytes,
@@ -321,6 +322,10 @@ pub struct AppState {
     pub workspace_dir: Option<std::path::PathBuf>,
     /// JWT secret for token verification
     pub jwt_secret: Arc<[u8]>,
+    // Skills Engine v2.0 (optional, requires Qdrant)
+    pub skill_engine: Option<Arc<SkillsEngine>>,
+    pub skill_loader: Option<Arc<VectorSkillLoader>>,
+    pub skill_evaluator: Option<Arc<SkillEvaluator>>,
 }
 
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
@@ -421,6 +426,64 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         }
     } else {
         None
+    };
+
+    // ── Skills Engine v2.0 (optional, requires Qdrant) ─────────────
+    let (skill_engine, skill_loader, skill_evaluator) = if mem.name() == "qdrant" {
+        // Try to downcast to QdrantMemory
+        let qdrant_memory = mem.as_any().downcast_ref::<QdrantMemory>();
+
+        if let Some(qdrant) = qdrant_memory {
+            // Create embedder from config (use main API key for embeddings)
+            let embedder = Arc::from(crate::memory::embeddings::create_embedding_provider(
+                &config.memory.embedding_provider,
+                config.api_key.as_deref(),
+                &config.memory.embedding_model,
+                config.memory.embedding_dimensions,
+            ));
+
+            let qdrant_memory = Arc::clone(qdrant);
+
+            match SkillsEngine::new(
+                &config.workspace_dir,
+                qdrant_memory,
+                embedder,
+            ) {
+                Ok(engine) => {
+                    let engine_arc = Arc::new(engine);
+
+                    // Initialize the engine (lazy-load skills)
+                    if let Err(e) = engine_arc.ensure_initialized().await {
+                        tracing::warn!("SkillsEngine initialization incomplete: {e}");
+                    } else {
+                        tracing::info!("🦾 SkillsEngine v2.0 initialized");
+                    }
+
+                    let loader = Arc::new(VectorSkillLoader::new(
+                        engine_arc.clone(),
+                        0.82,
+                    ));
+
+                    // Evaluator connects to local Ollama
+                    let evaluator = Arc::new(SkillEvaluator::new(
+                        "http://localhost:11434".to_string(),
+                        "qwen2.5-coder:7b".to_string(),
+                    ));
+
+                    (Some(engine_arc), Some(loader), Some(evaluator))
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to create SkillsEngine: {e}");
+                    (None, None, None)
+                }
+            }
+        } else {
+            tracing::warn!("Memory backend is 'qdrant' but downcast failed");
+            (None, None, None)
+        }
+    } else {
+        tracing::info!("SkillsEngine disabled (requires Qdrant memory backend)");
+        (None, None, None)
     };
 
     // SSE broadcast channel for real-time events
@@ -662,6 +725,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         event_tx,
         workspace_dir: Some(config.workspace_dir.clone()),
         jwt_secret: Arc::from(*b"zeroclaw-secret-change-me-in-production"),
+        skill_engine,
+        skill_loader,
+        skill_evaluator,
     };
 
     // Config PUT needs larger body limit (1MB)
@@ -716,7 +782,12 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/v1/telegram/threads", post(telegram_threads::create_thread))
         .route("/api/v1/telegram/threads/{id}/skills", put(telegram_threads::update_thread_skills))
         .route("/api/v1/telegram/threads/active", post(telegram_threads::set_active_thread))
-        .route("/api/v1/skills", get(telegram_threads::get_skills))
+        .route("/api/v1/telegram/available-skills", get(telegram_threads::get_available_skills))
+        // ── Skills Management API (CRUD) ──
+        .route("/api/v1/skills", get(api::handle_list_skills))
+        .route("/api/v1/skills", post(api::handle_create_skill))
+        .route("/api/v1/skills/{id}", get(api::handle_get_skill))
+        .route("/api/v1/skills/{id}", delete(api::handle_delete_skill))
         // ── TUI Dashboard API routes ──
         .route("/api/chat", post(api::handle_tui_chat))
         .route("/api/agents/active", get(api::handle_tui_agents_active))
@@ -1680,6 +1751,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let response = handle_metrics(State(state)).await.into_response();
@@ -1732,6 +1806,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let response = handle_metrics(State(state)).await.into_response();
@@ -2110,6 +2187,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let mut headers = HeaderMap::new();
@@ -2177,6 +2257,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let headers = HeaderMap::new();
@@ -2256,6 +2339,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let response = handle_webhook(
@@ -2307,6 +2393,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let mut headers = HeaderMap::new();
@@ -2363,6 +2452,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let mut headers = HeaderMap::new();
@@ -2424,6 +2516,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let response = handle_nextcloud_talk_webhook(
@@ -2481,6 +2576,9 @@ mod tests {
             hands: std::sync::Arc::new(crate::agent::hands::HandsDispatcher::default()),
             workspace_dir: None,
             jwt_secret: std::sync::Arc::from(*b"test_secret_____________________"),
+            skill_engine: None,
+            skill_loader: None,
+            skill_evaluator: None,
         };
 
         let mut headers = HeaderMap::new();
