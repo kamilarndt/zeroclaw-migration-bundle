@@ -116,24 +116,20 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                 }));
 
                 // Simple single-turn chat
-                let system_prompt = {
+                let (system_prompt, multimodal_config) = {
                     let config_guard = state.config.lock();
-                    crate::channels::build_system_prompt(
-                        &config_guard.workspace_dir,
-                        &state.model,
-                        &[],
-                        &[],
-                        Some(&config_guard.identity),
-                        None,
-                    )
+                    let system_prompt = format!(
+                        "You are ZeroClaw, an AI agent. Workspace: {}",
+                        config_guard.workspace_dir.display()
+                    );
+                    let multimodal_config = config_guard.multimodal.clone();
+                    (system_prompt, multimodal_config)
                 };
 
                 let messages = vec![
                     crate::providers::ChatMessage::system(system_prompt),
                     crate::providers::ChatMessage::user(&content),
                 ];
-
-                let multimodal_config = state.config.lock().multimodal.clone();
                 let prepared = match crate::multimodal::prepare_messages_for_provider(&messages, &multimodal_config).await {
                     Ok(p) => p,
                     Err(e) => {

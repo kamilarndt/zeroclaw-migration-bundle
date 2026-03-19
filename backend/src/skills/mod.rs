@@ -14,7 +14,7 @@ pub mod loader;
 pub mod evaluator;
 
 // Re-export main types for convenience
-pub use engine::{SkillsEngine, Skill, SkillSearchResult, SkillsConfig};
+pub use engine::{SkillsEngine, AgentSkill, AgentSkillSearchResult, SkillsConfig};
 pub use loader::{SkillLoader, VectorSkillLoader};
 pub use evaluator::{SkillEvaluator, EvalResult, EvalType};
 
@@ -25,22 +25,8 @@ const OPEN_SKILLS_SYNC_INTERVAL_SECS: u64 = 60 * 60 * 24 * 7;
 /// A skill is a user-defined or community-built capability.
 /// Skills live in `~/.zeroclaw/workspace/skills/<name>/SKILL.md`
 /// and can include tool definitions, prompts, and automation scripts.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Skill {
-    pub name: String,
-    pub description: String,
-    pub version: String,
-    #[serde(default)]
-    pub author: Option<String>,
-    #[serde(default)]
-    pub tags: Vec<String>,
-    #[serde(default)]
-    pub tools: Vec<SkillTool>,
-    #[serde(default)]
-    pub prompts: Vec<String>,
-    #[serde(skip)]
-    pub location: Option<PathBuf>,
-}
+/// Note: Re-exported from engine module - use `engine::AgentSkill` for database operations
+pub use engine::AgentSkill as Skill;
 
 /// A tool defined by a skill (shell command, HTTP call, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -412,24 +398,29 @@ fn mark_open_skills_synced(repo_dir: &Path) -> Result<()> {
 
 /// Load a skill from a SKILL.toml manifest
 fn load_skill_toml(path: &Path) -> Result<Skill> {
-    let content = std::fs::read_to_string(path)?;
-    let manifest: SkillManifest = toml::from_str(&content)?;
+    let file_content = std::fs::read_to_string(path)?;
+    let manifest: SkillManifest = toml::from_str(&file_content)?;
 
     Ok(Skill {
+        id: None,
         name: manifest.skill.name,
         description: manifest.skill.description,
+        content: file_content.clone(),
         version: manifest.skill.version,
         author: manifest.skill.author,
         tags: manifest.skill.tags,
-        tools: manifest.tools,
+        is_active: true,
+        tools: manifest.tools.into_iter().map(|t| serde_json::to_value(t).unwrap_or_default()).collect(),
         prompts: manifest.prompts,
         location: Some(path.to_path_buf()),
+        created_at: None,
+        updated_at: None,
     })
 }
 
 /// Load a skill from a SKILL.md file (simpler format)
 fn load_skill_md(path: &Path, dir: &Path) -> Result<Skill> {
-    let content = std::fs::read_to_string(path)?;
+    let file_content = std::fs::read_to_string(path)?;
     let name = dir
         .file_name()
         .and_then(|n| n.to_str())
@@ -437,19 +428,24 @@ fn load_skill_md(path: &Path, dir: &Path) -> Result<Skill> {
         .to_string();
 
     Ok(Skill {
+        id: None,
         name,
-        description: extract_description(&content),
+        description: extract_description(&file_content),
+        content: file_content.clone(),
         version: "0.1.0".to_string(),
         author: None,
         tags: Vec::new(),
+        is_active: true,
         tools: Vec::new(),
-        prompts: vec![content],
+        prompts: vec![file_content],
         location: Some(path.to_path_buf()),
+        created_at: None,
+        updated_at: None,
     })
 }
 
 fn load_open_skill_md(path: &Path) -> Result<Skill> {
-    let content = std::fs::read_to_string(path)?;
+    let file_content = std::fs::read_to_string(path)?;
     let name = path
         .file_stem()
         .and_then(|n| n.to_str())
@@ -457,14 +453,19 @@ fn load_open_skill_md(path: &Path) -> Result<Skill> {
         .to_string();
 
     Ok(Skill {
+        id: None,
         name,
-        description: extract_description(&content),
+        description: extract_description(&file_content),
+        content: file_content.clone(),
         version: "open-skills".to_string(),
         author: Some("besoeasy/open-skills".to_string()),
         tags: vec!["open-skills".to_string()],
+        is_active: true,
         tools: Vec::new(),
-        prompts: vec![content],
+        prompts: vec![file_content],
         location: Some(path.to_path_buf()),
+        created_at: None,
+        updated_at: None,
     })
 }
 
@@ -582,9 +583,15 @@ pub fn skills_to_prompt_with_mode(
                 let _ = writeln!(prompt, "    <tools>");
                 for tool in &skill.tools {
                     let _ = writeln!(prompt, "      <tool>");
-                    write_xml_text_element(&mut prompt, 8, "name", &tool.name);
-                    write_xml_text_element(&mut prompt, 8, "description", &tool.description);
-                    write_xml_text_element(&mut prompt, 8, "kind", &tool.kind);
+                    if let Some(name) = tool.get("name").and_then(|v| v.as_str()) {
+                        write_xml_text_element(&mut prompt, 8, "name", name);
+                    }
+                    if let Some(description) = tool.get("description").and_then(|v| v.as_str()) {
+                        write_xml_text_element(&mut prompt, 8, "description", description);
+                    }
+                    if let Some(kind) = tool.get("kind").and_then(|v| v.as_str()) {
+                        write_xml_text_element(&mut prompt, 8, "kind", kind);
+                    }
                     let _ = writeln!(prompt, "      </tool>");
                 }
                 let _ = writeln!(prompt, "    </tools>");
@@ -867,7 +874,7 @@ pub fn handle_command(command: crate::SkillCommands, config: &crate::config::Con
                             skill
                                 .tools
                                 .iter()
-                                .map(|t| t.name.as_str())
+                                .filter_map(|t| t.get("name").and_then(|v| v.as_str()))
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         );

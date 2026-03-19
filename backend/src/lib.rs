@@ -49,7 +49,7 @@ pub mod diagnostic;
 pub(crate) mod daemon;
 pub(crate) mod doctor;
 pub mod gateway;
-pub(crate) mod hardware;
+// pub(crate) mod hardware; // Removed - hardware module deleted
 pub(crate) mod health;
 pub(crate) mod heartbeat;
 pub mod hooks;
@@ -61,7 +61,7 @@ pub(crate) mod multimodal;
 pub mod monitoring;
 pub mod observability;
 pub(crate) mod onboard;
-pub mod peripherals;
+// pub mod peripherals; // Removed - peripherals module deleted
 pub mod providers;
 pub mod rag;
 pub mod routing;

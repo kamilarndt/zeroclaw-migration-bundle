@@ -16,8 +16,8 @@ use tokio::fs;
 use tokio::sync::mpsc;
 use std::sync::OnceLock;
 
-// TMA Hub thread integration
-use crate::gateway::telegram_threads::{get_thread_id_for_telegram_chat, get_skills_for_telegram_chat};
+// TMA Hub thread integration removed - telegram_threads module deleted
+// use crate::gateway::telegram_threads::{get_thread_id_for_telegram_chat, get_skills_for_telegram_chat};
 
 /// Telegram's maximum message length for text messages
 const TELEGRAM_MAX_MESSAGE_LENGTH: usize = 4096;
@@ -1249,20 +1249,25 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             }
         };
 
-        let text =
-            match super::transcription::transcribe_audio(audio_data, &file_name, config).await {
-                Ok(t) => t,
-                Err(e) => {
-                    tracing::warn!("Voice transcription failed: {e}");
-                    return None;
-                }
-            };
+        // Transcription disabled - transcription module removed
+        // let text =
+        //     match super::transcription::transcribe_audio(audio_data, &file_name, config).await {
+        //         Ok(t) => t,
+        //         Err(e) => {
+        //             tracing::warn!("Voice transcription failed: {e}");
+        //             return None;
+        //         }
+        //     };
 
-        if text.trim().is_empty() {
-            tracing::info!("Voice transcription returned empty text, skipping");
-            return None;
-        }
+        // Voice messages are not supported without transcription module
+        tracing::warn!("Voice messages are not supported - transcription module disabled");
+        return None;
 
+        // Voice messages not supported - transcription disabled
+        return None;
+
+        // Original code commented out:
+        /*
         // Cache transcription for reply-context lookups
         {
             let mut cache = self.voice_transcriptions.lock();
@@ -1291,6 +1296,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             thread_ts: thread_id,
             active_skills: vec![],
         })
+        */
     }
 
     /// Extract sender username and display identity from a Telegram message object.
@@ -2644,6 +2650,8 @@ impl TelegramChannel {
             };
 
             // 🔄 TMA HUB INTEGRATION: Look up TMA Hub thread for this chat
+            // Memory key functions removed - commenting out TMA Hub integration
+            /*
             // Extract chat_id from reply_target (format: "chat_id" or "chat_id:thread_id")
             let chat_id_for_thread = msg.reply_target.split(':').next().unwrap_or(&msg.reply_target);
             if let Some(tma_thread_id) = get_thread_id_for_telegram_chat(chat_id_for_thread).await {
@@ -2657,6 +2665,7 @@ impl TelegramChannel {
                     tracing::info!("🛠️ TMA Hub: Enabled skills: {:?}", msg.active_skills);
                 }
             }
+            */
 
             if let Some((reaction_chat_id, reaction_message_id)) =
                 Self::extract_update_message_target(&update)
@@ -2855,6 +2864,8 @@ Ensure only one `zeroclaw` process is using this bot token."
                     };
 
                     // 🔄 TMA HUB INTEGRATION: Look up TMA Hub thread for this chat
+                    // Memory key functions removed - commenting out TMA Hub integration
+                    /*
                     let mut msg = msg;
                     let chat_id_for_thread = msg.reply_target.split(':').next().unwrap_or(&msg.reply_target);
                     if let Some(tma_thread_id) = get_thread_id_for_telegram_chat(chat_id_for_thread).await {
@@ -2868,6 +2879,8 @@ Ensure only one `zeroclaw` process is using this bot token."
                             tracing::info!("🛠️ TMA Hub: Enabled skills: {:?}", msg.active_skills);
                         }
                     }
+                    */
+                    let msg = msg;
 
                     if let Some((reaction_chat_id, reaction_message_id)) =
                         Self::extract_update_message_target(update)
@@ -4667,16 +4680,19 @@ mod tests {
 
     /// Live test: voice transcription via Groq Whisper + reply cache lookup.
     ///
-    /// Loads a pre-recorded MP3 fixture ("hello"), sends it to Groq Whisper
-    /// API, verifies the transcription contains "hello", then caches it and
-    /// checks that `extract_reply_context` returns the cached text instead
-    /// of the `[Voice message]` fallback placeholder.
+    /// Test disabled - transcription module removed
     ///
     /// Skipped automatically when `GROQ_API_KEY` is not set.
     /// Run: `GROQ_API_KEY=<key> cargo test --lib -- telegram::tests::e2e_live_voice_transcription_and_reply_cache --ignored`
     #[tokio::test]
     #[ignore]
+    #[allow(unused_variables)]
     async fn e2e_live_voice_transcription_and_reply_cache() {
+        // Test disabled - transcription module removed
+        return;
+
+        // Original test code commented out:
+        /*
         if std::env::var("GROQ_API_KEY").is_err() {
             eprintln!("GROQ_API_KEY not set — skipping live voice transcription test");
             return;
@@ -4743,6 +4759,7 @@ mod tests {
             !ctx.contains("[Voice message]"),
             "context should use cached transcription, not fallback placeholder, got: {ctx}"
         );
+        */
     }
 
     // ── IncomingAttachment / parse_attachment_metadata tests ─────────

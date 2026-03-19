@@ -1,16 +1,13 @@
 use crate::config::{
     // From schema.rs
-    AutonomyConfig, BrowserConfig, ChannelsConfig, ComposioConfig, Config, DiscordConfig,
-    HeartbeatConfig, IMessageConfig, LarkConfig, LarkReceiveMode, MatrixConfig, MemoryConfig,
-    ObservabilityConfig, RuntimeConfig, SecretsConfig, SlackConfig, StorageConfig, TelegramConfig,
-    WebhookConfig,
-    // From schemas/llm_schema.rs
-    default_nostr_relays,
-    // From schema.rs
-    DingTalkConfig, IrcConfig, LinqConfig, NextcloudTalkConfig, NostrConfig, QQConfig,
-    SignalConfig, StreamMode, WhatsAppConfig,
+    AutonomyConfig, BrowserConfig, ChannelsConfig, ComposioConfig, Config,
+    DiscordConfig, HeartbeatConfig, HardwareConfig, HardwareTransport, MemoryConfig,
+    ObservabilityConfig, RuntimeConfig, SecretsConfig, StorageConfig,
+    StreamMode, TelegramConfig,
+    // Slack and other channel configs removed - channels deleted
 };
-use crate::hardware::{self, HardwareConfig};
+// Hardware imports removed - hardware module deleted
+// use crate::hardware::{self, HardwareConfig};
 use crate::memory::{
     default_memory_backend_key, memory_backend_profile, selectable_memory_backends,
 };
@@ -166,7 +163,7 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
         proxy: crate::config::ProxyConfig::default(),
         identity: crate::config::IdentityConfig::default(),
         cost: crate::config::CostConfig::default(),
-        peripherals: crate::config::PeripheralsConfig::default(),
+        peripherals: Default::default(),
         agents: std::collections::HashMap::new(),
         hooks: crate::config::HooksConfig::default(),
         hardware: hardware_config,
@@ -519,10 +516,10 @@ async fn run_quick_setup_with_home(
         proxy: crate::config::ProxyConfig::default(),
         identity: crate::config::IdentityConfig::default(),
         cost: crate::config::CostConfig::default(),
-        peripherals: crate::config::PeripheralsConfig::default(),
+        peripherals: Default::default(),
         agents: std::collections::HashMap::new(),
         hooks: crate::config::HooksConfig::default(),
-        hardware: crate::config::HardwareConfig::default(),
+        hardware: Default::default(),
         query_classification: crate::config::QueryClassificationConfig::default(),
         transcription: crate::config::TranscriptionConfig::default(),
     };
@@ -2998,7 +2995,13 @@ fn setup_tool_mode() -> Result<(ComposioConfig, SecretsConfig)> {
 
 // ── Step 6: Hardware (Physical World) ───────────────────────────
 
+#[allow(dead_code)]
 fn setup_hardware() -> Result<HardwareConfig> {
+    // Hardware module removed - return default config
+    return Ok(HardwareConfig::default());
+
+    // The following code is unreachable and commented out due to hardware module removal
+    /*
     print_bullet("ZeroClaw can talk to physical hardware (LEDs, sensors, motors).");
     print_bullet("Scanning for connected devices...");
     println!();
@@ -3064,10 +3067,10 @@ fn setup_hardware() -> Result<HardwareConfig> {
     let mut hw_config = hardware::config_from_wizard_choice(choice, &devices);
 
     // ── Serial: pick a port if multiple found ──
-    if hw_config.transport_mode() == hardware::HardwareTransport::Serial {
+    if hw_config.transport_mode() == HardwareTransport::Serial {
         let serial_devices: Vec<&hardware::DiscoveredDevice> = devices
             .iter()
-            .filter(|d| d.transport == hardware::HardwareTransport::Serial)
+            .filter(|d| d.transport == HardwareTransport::Serial)
             .collect();
 
         if serial_devices.len() > 1 {
@@ -3128,7 +3131,7 @@ fn setup_hardware() -> Result<HardwareConfig> {
     }
 
     // ── Probe: ask for target chip ──
-    if hw_config.transport_mode() == hardware::HardwareTransport::Probe
+    if hw_config.transport_mode() == HardwareTransport::Probe
         && hw_config.probe_target.is_none()
     {
         let target: String = Input::new()
@@ -3150,17 +3153,17 @@ fn setup_hardware() -> Result<HardwareConfig> {
     // ── Summary ──
     if hw_config.enabled {
         let transport_label = match hw_config.transport_mode() {
-            hardware::HardwareTransport::Native => "Native GPIO".to_string(),
-            hardware::HardwareTransport::Serial => format!(
+            HardwareTransport::Native => "Native GPIO".to_string(),
+            HardwareTransport::Serial => format!(
                 "Serial → {} @ {} baud",
                 hw_config.serial_port.as_deref().unwrap_or("?"),
                 hw_config.baud_rate
             ),
-            hardware::HardwareTransport::Probe => format!(
+            HardwareTransport::Probe => format!(
                 "Probe (SWD/JTAG) → {}",
                 hw_config.probe_target.as_deref().unwrap_or("?")
             ),
-            hardware::HardwareTransport::None => "Software Only".to_string(),
+            HardwareTransport::None => "Software Only".to_string(),
         };
 
         println!(
@@ -3182,6 +3185,7 @@ fn setup_hardware() -> Result<HardwareConfig> {
     }
 
     Ok(hw_config)
+    */
 }
 
 // ── Step 6: Project Context ─────────────────────────────────────
@@ -3327,40 +3331,27 @@ fn setup_memory() -> Result<MemoryConfig> {
 enum ChannelMenuChoice {
     Telegram,
     Discord,
-    Slack,
-    IMessage,
-    Matrix,
-    Signal,
-    WhatsApp,
-    Linq,
-    Irc,
-    Webhook,
-    NextcloudTalk,
-    DingTalk,
-    QqOfficial,
-    Lark,
-    Feishu,
-    Nostr,
+    // Slack, // Removed - Slack channel deleted
+    // IMessage, // Removed - iMessage channel deleted
+    // Matrix, // Removed - Matrix channel deleted
+    // Signal, // Removed - Signal channel deleted
+    // WhatsApp, // Removed - WhatsApp channel deleted
+    // Linq, // Removed - Linq channel deleted
+    // Irc, // Removed - IRC channel deleted
+    // Webhook, // Removed - Webhook channel deleted
+    // NextcloudTalk, // Removed - Nextcloud Talk channel deleted
+    // DingTalk, // Removed - DingTalk channel deleted
+    // QqOfficial, // Removed - QQ channel deleted
+    // Lark, // Removed - Lark channel deleted
+    // Feishu, // Removed - Feishu channel deleted
+    // Nostr, // Removed - Nostr channel deleted
     Done,
 }
 
 const CHANNEL_MENU_CHOICES: &[ChannelMenuChoice] = &[
     ChannelMenuChoice::Telegram,
     ChannelMenuChoice::Discord,
-    ChannelMenuChoice::Slack,
-    ChannelMenuChoice::IMessage,
-    ChannelMenuChoice::Matrix,
-    ChannelMenuChoice::Signal,
-    ChannelMenuChoice::WhatsApp,
-    ChannelMenuChoice::Linq,
-    ChannelMenuChoice::Irc,
-    ChannelMenuChoice::Webhook,
-    ChannelMenuChoice::NextcloudTalk,
-    ChannelMenuChoice::DingTalk,
-    ChannelMenuChoice::QqOfficial,
-    ChannelMenuChoice::Lark,
-    ChannelMenuChoice::Feishu,
-    ChannelMenuChoice::Nostr,
+    // Removed channels: Slack, IMessage, Matrix, Signal, WhatsApp, Linq, Irc, Webhook, NextcloudTalk, DingTalk, QqOfficial, Lark, Feishu, Nostr
     ChannelMenuChoice::Done,
 ];
 
@@ -3370,11 +3361,93 @@ fn channel_menu_choices() -> &'static [ChannelMenuChoice] {
 
 #[allow(clippy::too_many_lines)]
 fn setup_channels() -> Result<ChannelsConfig> {
+    // Simplified channel setup - only Telegram and Discord
     print_bullet("Channels let you talk to ZeroClaw from anywhere.");
     print_bullet("CLI is always available. Connect more channels now.");
     println!();
 
     let mut config = ChannelsConfig::default();
+
+    // Simplified menu - only Telegram and Discord
+    let options = vec![
+        "Skip (use CLI only)",
+        "Setup Telegram",
+        "Setup Discord",
+    ];
+
+    loop {
+        let choice = Select::new()
+            .with_prompt("Select a channel to configure")
+            .items(&options)
+            .default(0)
+            .interact()?;
+
+        match choice {
+            0 => break,
+            1 => {
+                // Telegram setup
+                println!();
+                println!("  {} {}", style("Telegram Setup").white().bold(), style("— connect your bot").dim());
+                print_bullet("1. Go to @BotFather on Telegram");
+                print_bullet("2. Create a new bot and copy the token");
+                println!();
+
+                let token: String = Input::new()
+                    .with_prompt("  Bot token")
+                    .interact_text()?;
+
+                if token.trim().is_empty() {
+                    println!("  {} Skipped", style("→").dim());
+                    continue;
+                }
+
+                config.telegram = Some(TelegramConfig {
+                    bot_token: token,
+                    allowed_users: vec!["*".to_string()],
+                    stream_mode: StreamMode::default(),
+                    draft_update_interval_ms: 1500,
+                    interrupt_on_new_message: false,
+                    mention_only: false,
+                });
+
+                println!("  {} Telegram configured", style("✅").green().bold());
+            }
+            2 => {
+                // Discord setup
+                println!();
+                println!("  {} {}", style("Discord Setup").white().bold(), style("— connect your bot").dim());
+                print_bullet("1. Go to Discord Developer Portal");
+                print_bullet("2. Create a bot and copy the token");
+                println!();
+
+                let token: String = Input::new()
+                    .with_prompt("  Bot token")
+                    .interact_text()?;
+
+                if token.trim().is_empty() {
+                    println!("  {} Skipped", style("→").dim());
+                    continue;
+                }
+
+                config.discord = Some(DiscordConfig {
+                    bot_token: token,
+                    guild_id: None,
+                    allowed_users: vec![],
+                    listen_to_bots: false,
+                    mention_only: false,
+                });
+
+                println!("  {} Discord configured", style("✅").green().bold());
+            }
+            _ => break,
+        }
+    }
+
+    Ok(config)
+
+    // Original implementation commented out:
+    /*
+    let menu_choices = channel_menu_choices();
     let menu_choices = channel_menu_choices();
 
     loop {
@@ -3725,133 +3798,133 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     mention_only: false,
                 });
             }
-            ChannelMenuChoice::Slack => {
-                // ── Slack ──
-                println!();
-                println!(
-                    "  {} {}",
-                    style("Slack Setup").white().bold(),
-                    style("— talk to ZeroClaw from Slack").dim()
-                );
-                print_bullet("1. Go to https://api.slack.com/apps → Create New App");
-                print_bullet("2. Add Bot Token Scopes: chat:write, channels:history");
-                print_bullet("3. Install to workspace and copy the Bot Token");
-                println!();
-
-                let token: String = Input::new()
-                    .with_prompt("  Bot token (xoxb-...)")
-                    .interact_text()?;
-
-                if token.trim().is_empty() {
-                    println!("  {} Skipped", style("→").dim());
-                    continue;
-                }
-
-                // Test connection (run entirely in separate thread — Response must be used/dropped there)
-                print!("  {} Testing connection... ", style("⏳").dim());
-                let token_clone = token.clone();
-                let thread_result = std::thread::spawn(move || {
-                    let client = reqwest::blocking::Client::new();
-                    let resp = client
-                        .get("https://slack.com/api/auth.test")
-                        .bearer_auth(&token_clone)
-                        .send()?;
-                    let ok = resp.status().is_success();
-                    let data: serde_json::Value = resp.json().unwrap_or_default();
-                    let api_ok = data
-                        .get("ok")
-                        .and_then(serde_json::Value::as_bool)
-                        .unwrap_or(false);
-                    let team = data
-                        .get("team")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("unknown")
-                        .to_string();
-                    let err = data
-                        .get("error")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("unknown error")
-                        .to_string();
-                    Ok::<_, reqwest::Error>((ok, api_ok, team, err))
-                })
-                .join();
-                match thread_result {
-                    Ok(Ok((true, true, team, _))) => {
-                        println!(
-                            "\r  {} Connected to workspace: {team}        ",
-                            style("✅").green().bold()
-                        );
-                    }
-                    Ok(Ok((true, false, _, err))) => {
-                        println!("\r  {} Slack error: {err}", style("❌").red().bold());
-                        continue;
-                    }
-                    _ => {
-                        println!(
-                            "\r  {} Connection failed — check your token",
-                            style("❌").red().bold()
-                        );
-                        continue;
-                    }
-                }
-
-                let app_token: String = Input::new()
-                    .with_prompt("  App token (xapp-..., optional, Enter to skip)")
-                    .allow_empty(true)
-                    .interact_text()?;
-
-                let channel: String = Input::new()
-                    .with_prompt(
-                        "  Default channel ID (optional, Enter to skip for all accessible channels; '*' also means all)",
-                    )
-                    .allow_empty(true)
-                    .interact_text()?;
-
-                print_bullet("Allowlist your own Slack member ID first (recommended).");
-                print_bullet(
-                    "Member IDs usually start with 'U' (open your Slack profile -> More -> Copy member ID).",
-                );
-                print_bullet("Use '*' only for temporary open testing.");
-
-                let allowed_users_str: String = Input::new()
-                    .with_prompt(
-                        "  Allowed Slack user IDs (comma-separated, recommended: your own member ID, '*' for all)",
-                    )
-                    .allow_empty(true)
-                    .interact_text()?;
-
-                let allowed_users = if allowed_users_str.trim().is_empty() {
-                    vec![]
-                } else {
-                    allowed_users_str
-                        .split(',')
-                        .map(|s| s.trim().to_string())
-                        .filter(|s| !s.is_empty())
-                        .collect()
-                };
-
-                if allowed_users.is_empty() {
-                    println!(
-                        "  {} No users allowlisted — Slack inbound messages will be denied until you add IDs or '*'.",
-                        style("⚠").yellow().bold()
-                    );
-                }
-
-                config.slack = Some(SlackConfig {
-                    bot_token: token,
-                    app_token: if app_token.is_empty() {
-                        None
-                    } else {
-                        Some(app_token)
-                    },
-                    channel_id: if channel.is_empty() {
-                        None
-                    } else {
-                        Some(channel)
-                    },
-                    allowed_users,
-                });
-            }
+//             ChannelMenuChoice::Slack => {
+//                 // ── Slack ──
+//                 println!();
+//                 println!(
+//                     "  {} {}",
+//                     style("Slack Setup").white().bold(),
+//                     style("— talk to ZeroClaw from Slack").dim()
+//                 );
+//                 print_bullet("1. Go to https://api.slack.com/apps → Create New App");
+//                 print_bullet("2. Add Bot Token Scopes: chat:write, channels:history");
+//                 print_bullet("3. Install to workspace and copy the Bot Token");
+//                 println!();
+// 
+//                 let token: String = Input::new()
+//                     .with_prompt("  Bot token (xoxb-...)")
+//                     .interact_text()?;
+// 
+//                 if token.trim().is_empty() {
+//                     println!("  {} Skipped", style("→").dim());
+//                     continue;
+//                 }
+// 
+//                 // Test connection (run entirely in separate thread — Response must be used/dropped there)
+//                 print!("  {} Testing connection... ", style("⏳").dim());
+//                 let token_clone = token.clone();
+//                 let thread_result = std::thread::spawn(move || {
+//                     let client = reqwest::blocking::Client::new();
+//                     let resp = client
+//                         .get("https://slack.com/api/auth.test")
+//                         .bearer_auth(&token_clone)
+//                         .send()?;
+//                     let ok = resp.status().is_success();
+//                     let data: serde_json::Value = resp.json().unwrap_or_default();
+//                     let api_ok = data
+//                         .get("ok")
+//                         .and_then(serde_json::Value::as_bool)
+//                         .unwrap_or(false);
+//                     let team = data
+//                         .get("team")
+//                         .and_then(serde_json::Value::as_str)
+//                         .unwrap_or("unknown")
+//                         .to_string();
+//                     let err = data
+//                         .get("error")
+//                         .and_then(serde_json::Value::as_str)
+//                         .unwrap_or("unknown error")
+//                         .to_string();
+//                     Ok::<_, reqwest::Error>((ok, api_ok, team, err))
+//                 })
+//                 .join();
+//                 match thread_result {
+//                     Ok(Ok((true, true, team, _))) => {
+//                         println!(
+//                             "\r  {} Connected to workspace: {team}        ",
+//                             style("✅").green().bold()
+//                         );
+//                     }
+//                     Ok(Ok((true, false, _, err))) => {
+//                         println!("\r  {} Slack error: {err}", style("❌").red().bold());
+//                         continue;
+//                     }
+//                     _ => {
+//                         println!(
+//                             "\r  {} Connection failed — check your token",
+//                             style("❌").red().bold()
+//                         );
+//                         continue;
+//                     }
+//                 }
+// 
+//                 let app_token: String = Input::new()
+//                     .with_prompt("  App token (xapp-..., optional, Enter to skip)")
+//                     .allow_empty(true)
+//                     .interact_text()?;
+// 
+//                 let channel: String = Input::new()
+//                     .with_prompt(
+//                         "  Default channel ID (optional, Enter to skip for all accessible channels; '*' also means all)",
+//                     )
+//                     .allow_empty(true)
+//                     .interact_text()?;
+// 
+//                 print_bullet("Allowlist your own Slack member ID first (recommended).");
+//                 print_bullet(
+//                     "Member IDs usually start with 'U' (open your Slack profile -> More -> Copy member ID).",
+//                 );
+//                 print_bullet("Use '*' only for temporary open testing.");
+// 
+//                 let allowed_users_str: String = Input::new()
+//                     .with_prompt(
+//                         "  Allowed Slack user IDs (comma-separated, recommended: your own member ID, '*' for all)",
+//                     )
+//                     .allow_empty(true)
+//                     .interact_text()?;
+// 
+//                 let allowed_users = if allowed_users_str.trim().is_empty() {
+//                     vec![]
+//                 } else {
+//                     allowed_users_str
+//                         .split(',')
+//                         .map(|s| s.trim().to_string())
+//                         .filter(|s| !s.is_empty())
+//                         .collect()
+//                 };
+// 
+//                 if allowed_users.is_empty() {
+//                     println!(
+//                         "  {} No users allowlisted — Slack inbound messages will be denied until you add IDs or '*'.",
+//                         style("⚠").yellow().bold()
+//                     );
+//                 }
+// 
+//                 config.slack = Some(SlackConfig {
+//                     bot_token: token,
+//                     app_token: if app_token.is_empty() {
+//                         None
+//                     } else {
+//                         Some(app_token)
+//                     },
+//                     channel_id: if channel.is_empty() {
+//                         None
+//                     } else {
+//                         Some(channel)
+//                     },
+//                     allowed_users,
+//                 });
+//             }
             ChannelMenuChoice::IMessage => {
                 // ── iMessage ──
                 println!();
@@ -3889,7 +3962,7 @@ fn setup_channels() -> Result<ChannelsConfig> {
                         .collect()
                 };
 
-                config.imessage = Some(IMessageConfig { allowed_contacts });
+//                 config.imessage = Some(IMessageConfig { allowed_contacts });
                 println!(
                     "  {} iMessage configured (contacts: {})",
                     style("✅").green().bold(),
@@ -3999,7 +4072,7 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     users_str.split(',').map(|s| s.trim().to_string()).collect()
                 };
 
-                config.matrix = Some(MatrixConfig {
+//                 config.matrix = Some(MatrixConfig {
                     homeserver: homeserver.trim_end_matches('/').to_string(),
                     access_token,
                     user_id: detected_user_id,
@@ -4093,14 +4166,15 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     .default(true)
                     .interact()?;
 
-                config.signal = Some(SignalConfig {
-                    http_url: http_url.trim_end_matches('/').to_string(),
-                    account: account.trim().to_string(),
-                    group_id,
-                    allowed_from,
-                    ignore_attachments,
-                    ignore_stories,
-                });
+                // Signal config disabled - Signal channel deleted
+                // config.signal = Some(SignalConfig {
+                //     http_url: http_url.trim_end_matches('/').to_string(),
+                //     account: account.trim().to_string(),
+                //     group_id,
+                //     allowed_from,
+                //     ignore_attachments,
+                //     ignore_stories,
+                // });
 
                 println!("  {} Signal configured", style("✅").green().bold());
             }
@@ -4169,12 +4243,12 @@ fn setup_channels() -> Result<ChannelsConfig> {
                         users_str.split(',').map(|s| s.trim().to_string()).collect()
                     };
 
-                    config.whatsapp = Some(WhatsAppConfig {
-                        access_token: None,
-                        phone_number_id: None,
-                        verify_token: None,
-                        app_secret: None,
-                        session_path: Some(session_path.trim().to_string()),
+//                     config.whatsapp = Some(WhatsAppConfig {
+//                         access_token: None,
+//                         phone_number_id: None,
+//                         verify_token: None,
+//                         app_secret: None,
+//                         session_path: Some(session_path.trim().to_string()),
                         pair_phone: (!pair_phone.trim().is_empty())
                             .then(|| pair_phone.trim().to_string()),
                         pair_code: (!pair_code.trim().is_empty())
@@ -4272,12 +4346,12 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     users_str.split(',').map(|s| s.trim().to_string()).collect()
                 };
 
-                config.whatsapp = Some(WhatsAppConfig {
-                    access_token: Some(access_token.trim().to_string()),
-                    phone_number_id: Some(phone_number_id.trim().to_string()),
-                    verify_token: Some(verify_token.trim().to_string()),
-                    app_secret: None, // Can be set via ZEROCLAW_WHATSAPP_APP_SECRET env var
-                    session_path: None,
+//                 config.whatsapp = Some(WhatsAppConfig {
+//                     access_token: Some(access_token.trim().to_string()),
+//                     phone_number_id: Some(phone_number_id.trim().to_string()),
+//                     verify_token: Some(verify_token.trim().to_string()),
+//                     app_secret: None, // Can be set via ZEROCLAW_WHATSAPP_APP_SECRET env var
+//                     session_path: None,
                     pair_phone: None,
                     pair_code: None,
                     allowed_numbers,
@@ -4364,10 +4438,10 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     .allow_empty(true)
                     .interact_text()?;
 
-                config.linq = Some(LinqConfig {
-                    api_token: api_token.trim().to_string(),
-                    from_phone: from_phone.trim().to_string(),
-                    signing_secret: if signing_secret.trim().is_empty() {
+//                 config.linq = Some(LinqConfig {
+//                     api_token: api_token.trim().to_string(),
+//                     from_phone: from_phone.trim().to_string(),
+//                     signing_secret: if signing_secret.trim().is_empty() {
                         None
                     } else {
                         Some(signing_secret.trim().to_string())
@@ -4489,11 +4563,11 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     style(port).cyan()
                 );
 
-                config.irc = Some(IrcConfig {
-                    server: server.trim().to_string(),
-                    port,
-                    nickname: nickname.trim().to_string(),
-                    username: None,
+//                 config.irc = Some(IrcConfig {
+//                     server: server.trim().to_string(),
+//                     port,
+//                     nickname: nickname.trim().to_string(),
+//                     username: None,
                     channels,
                     allowed_users,
                     server_password: if server_password.trim().is_empty() {
@@ -5057,6 +5131,7 @@ fn setup_channels() -> Result<ChannelsConfig> {
     );
 
     Ok(config)
+    */
 }
 
 // ── Step 4: Tunnel ──────────────────────────────────────────────
@@ -5609,10 +5684,10 @@ fn print_summary(config: &Config) {
         if config.hardware.enabled {
             let mode = config.hardware.transport_mode();
             match mode {
-                hardware::HardwareTransport::Native => {
+                HardwareTransport::Native => {
                     style("Native GPIO (direct)").green().to_string()
                 }
-                hardware::HardwareTransport::Serial => format!(
+                HardwareTransport::Serial => format!(
                     "{}",
                     style(format!(
                         "Serial → {} @ {} baud",
@@ -5621,7 +5696,7 @@ fn print_summary(config: &Config) {
                     ))
                     .green()
                 ),
-                hardware::HardwareTransport::Probe => format!(
+                HardwareTransport::Probe => format!(
                     "{}",
                     style(format!(
                         "Probe → {}",
@@ -5629,7 +5704,7 @@ fn print_summary(config: &Config) {
                     ))
                     .green()
                 ),
-                hardware::HardwareTransport::None => "disabled (software only)".to_string(),
+                HardwareTransport::None => "disabled (software only)".to_string(),
             }
         } else {
             "disabled (software only)".to_string()

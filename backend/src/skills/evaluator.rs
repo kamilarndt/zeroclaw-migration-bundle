@@ -1,11 +1,18 @@
 //! Background skill evaluator using Ollama fallback
 
-use super::engine::Skill;
+use super::engine::AgentSkill;
 use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::task::spawn_blocking;
+
+/// Internal result for format/consistency checks
+#[derive(Debug)]
+struct CheckResult {
+    score: f64,
+    feedback: String,
+}
 
 /// Evaluation result for a skill
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,7 +57,7 @@ impl SkillEvaluator {
     }
 
     /// Evaluate a skill in the background (non-blocking)
-    pub async fn evaluate_skill_background(&self, skill: &Skill) -> Result<EvalResult> {
+    pub async fn evaluate_skill_background(&self, skill: &AgentSkill) -> Result<EvalResult> {
         let skill = skill.clone();
         let url = self.ollama_url.clone();
         let model = self.model.clone();
@@ -63,7 +70,7 @@ impl SkillEvaluator {
     }
 
     /// Synchronous evaluation (runs in blocking thread)
-    fn evaluate_sync(skill: &Skill, ollama_url: &str, model: &str) -> Result<EvalResult> {
+    fn evaluate_sync(skill: &AgentSkill, ollama_url: &str, model: &str) -> Result<EvalResult> {
         let skill_id = skill.id.unwrap_or(0);
         let skill_name = skill.name.clone();
 
@@ -101,15 +108,9 @@ impl SkillEvaluator {
         })
     }
 
-    #[derive(Debug)]
-    struct CheckResult {
-        score: f64,
-        feedback: String,
-    }
-
     /// Check skill format (frontmatter, sections)
-    fn check_format(skill: &Skill) -> CheckResult {
-        let mut score = 1.0;
+    fn check_format(skill: &AgentSkill) -> CheckResult {
+        let mut score: f64 = 1.0;
         let mut issues = Vec::new();
 
         // Check for name
@@ -149,8 +150,9 @@ impl SkillEvaluator {
     }
 
     /// Check consistency between description and content
-    fn check_consistency(skill: &Skill) -> CheckResult {
-        let desc_words: Vec<&str> = skill.description.to_lowercase().split_whitespace().collect();
+    fn check_consistency(skill: &AgentSkill) -> CheckResult {
+        let description_lower = skill.description.to_lowercase();
+        let desc_words: Vec<&str> = description_lower.split_whitespace().collect();
         let content_lower = skill.content.to_lowercase();
 
         // Count how many description words appear in content
@@ -178,7 +180,7 @@ impl SkillEvaluator {
     }
 
     /// Check for safety issues
-    fn check_safety(skill: &Skill) -> CheckResult {
+    fn check_safety(skill: &AgentSkill) -> CheckResult {
         let dangerous_patterns = vec![
             "rm -rf",
             "DROP TABLE",
@@ -224,7 +226,7 @@ mod tests {
 
     #[test]
     fn format_check_detects_missing_name() {
-        let skill = Skill {
+        let skill = AgentSkill {
             id: None,
             name: "".to_string(),
             description: "A description".to_string(),
@@ -233,6 +235,9 @@ mod tests {
             author: None,
             tags: vec![],
             is_active: true,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
             created_at: None,
             updated_at: None,
         };
@@ -244,15 +249,18 @@ mod tests {
 
     #[test]
     fn consistency_check_measures_overlap() {
-        let skill = Skill {
+        let skill = AgentSkill {
             id: None,
             name: "test".to_string(),
             description: "A skill about coding".to_string(),
-            content: "# Coding Skill\n\nThis skill helps with coding tasks".to_string(),
+            content: "# Coding AgentSkill\n\nThis skill helps with coding tasks".to_string(),
             version: "1.0.0".to_string(),
             author: None,
             tags: vec![],
             is_active: true,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
             created_at: None,
             updated_at: None,
         };
@@ -263,7 +271,7 @@ mod tests {
 
     #[test]
     fn safety_check_detects_dangerous_patterns() {
-        let skill = Skill {
+        let skill = AgentSkill {
             id: None,
             name: "dangerous".to_string(),
             description: "A dangerous skill".to_string(),
@@ -272,6 +280,9 @@ mod tests {
             author: None,
             tags: vec![],
             is_active: true,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
             created_at: None,
             updated_at: None,
         };

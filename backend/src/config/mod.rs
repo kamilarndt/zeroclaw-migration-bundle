@@ -32,21 +32,36 @@ pub mod schemas {
 pub use schema::{
     apply_runtime_proxy_to_builder, build_runtime_proxy_client,
     build_runtime_proxy_client_with_timeouts, runtime_proxy_config, set_runtime_proxy_config,
-    default_nostr_relays,
+    // default_nostr_relays, // Removed - Nostr channel deleted
     // Types defined in schema.rs
     AgentConfig, AutonomyConfig, BrowserComputerUseConfig, BrowserConfig,
     BuiltinHooksConfig, ChannelsConfig, ComposioConfig, Config, CostConfig,
-    CronConfig, DiscordConfig, DockerRuntimeConfig,
-    DingTalkConfig, FeishuConfig, GatewayConfig, HardwareConfig, HardwareTransport,
-    HeartbeatConfig, HooksConfig, HttpRequestConfig, IMessageConfig, IdentityConfig, IrcConfig,
-    LarkConfig, LarkReceiveMode, LinqConfig, MatrixConfig,
-    MultimodalConfig, NextcloudTalkConfig, NostrConfig, ObservabilityConfig,
-    PeripheralBoardConfig, PeripheralsConfig, ProxyConfig, ProxyScope,
-    QQConfig, ReliabilityConfig,
-    RuntimeConfig, SchedulerConfig, SecretsConfig, SignalConfig,
-    SkillsConfig, SkillsPromptInjectionMode, SlackConfig,
-    StreamMode, TelegramConfig, TranscriptionConfig, TunnelConfig, TailscaleTunnelConfig,
-    WebFetchConfig, WebSearchConfig, WebhookConfig, WhatsAppConfig,
+    CronConfig, DockerRuntimeConfig,
+    DiscordConfig, // Discord channel
+    GatewayConfig, HardwareConfig, HardwareTransport, // Hardware config types
+    HeartbeatConfig, HooksConfig, HttpRequestConfig,
+    // IMessageConfig, // Removed - iMessage channel deleted
+    IdentityConfig,
+    // IrcConfig, // Removed - IRC channel deleted
+    // LarkConfig, LarkReceiveMode, // Removed - Lark channel deleted
+    // LinqConfig, // Removed - Linq channel deleted
+    // MatrixConfig, // Removed - Matrix channel deleted
+    MultimodalConfig,
+    // NextcloudTalkConfig, // Removed - Nextcloud Talk channel deleted
+    // NostrConfig, // Removed - Nostr channel deleted
+    ObservabilityConfig,
+    // PeripheralBoardConfig, PeripheralsConfig, // Removed - peripherals module deleted
+    ProxyConfig, ProxyScope,
+    // QQConfig, // Removed - QQ channel deleted
+    ReliabilityConfig,
+    RuntimeConfig, SchedulerConfig, SecretsConfig,
+    // SignalConfig, // Removed - Signal channel deleted
+    SkillsConfig, SkillsPromptInjectionMode,
+    // SlackConfig, // Removed - Slack channel deleted
+    StreamMode, TelegramConfig, // Telegram channel
+    TranscriptionConfig, TunnelConfig, TailscaleTunnelConfig,
+    WebFetchConfig, WebSearchConfig,
+    // WebhookConfig, WhatsAppConfig, // Removed - Webhook and WhatsApp channels deleted
 };
 
 // Re-export types from schemas submodules
@@ -77,57 +92,5 @@ mod tests {
         assert!(config.default_temperature > 0.0);
     }
 
-    #[test]
-    fn reexported_channel_configs_are_constructible() {
-        let telegram = TelegramConfig {
-            bot_token: "token".into(),
-            allowed_users: vec!["alice".into()],
-            stream_mode: StreamMode::default(),
-            draft_update_interval_ms: 1000,
-            interrupt_on_new_message: false,
-            mention_only: false,
-        };
-
-        let discord = DiscordConfig {
-            bot_token: "token".into(),
-            guild_id: Some("123".into()),
-            allowed_users: vec![],
-            listen_to_bots: false,
-            mention_only: false,
-        };
-
-        let lark = LarkConfig {
-            app_id: "app-id".into(),
-            app_secret: "app-secret".into(),
-            encrypt_key: None,
-            verification_token: None,
-            allowed_users: vec![],
-            mention_only: false,
-            use_feishu: false,
-            receive_mode: crate::config::schema::LarkReceiveMode::Websocket,
-            port: None,
-        };
-        let feishu = FeishuConfig {
-            app_id: "app-id".into(),
-            app_secret: "app-secret".into(),
-            encrypt_key: None,
-            verification_token: None,
-            allowed_users: vec![],
-            receive_mode: crate::config::schema::LarkReceiveMode::Websocket,
-            port: None,
-        };
-
-        let nextcloud_talk = NextcloudTalkConfig {
-            base_url: "https://cloud.example.com".into(),
-            app_token: "app-token".into(),
-            webhook_secret: None,
-            allowed_users: vec!["*".into()],
-        };
-
-        assert_eq!(telegram.allowed_users.len(), 1);
-        assert_eq!(discord.guild_id.as_deref(), Some("123"));
-        assert_eq!(lark.app_id, "app-id");
-        assert_eq!(feishu.app_id, "app-id");
-        assert_eq!(nextcloud_talk.base_url, "https://cloud.example.com");
-    }
+    // Channel config test removed - channels deleted
 }

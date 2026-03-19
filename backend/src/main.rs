@@ -53,16 +53,13 @@ mod approval;
 mod auth;
 mod channels;
 mod diagnostic;
-mod rag {
-    pub use zeroclaw::rag::*;
-}
+mod rag;
 mod config;
 mod cost;
 mod cron;
 mod daemon;
 mod doctor;
 mod gateway;
-mod hardware;
 mod health;
 mod heartbeat;
 mod hooks;
@@ -73,7 +70,6 @@ mod migration;
 mod multimodal;
 mod observability;
 mod onboard;
-mod peripherals;
 mod providers;
 mod runtime;
 mod security;
@@ -87,9 +83,9 @@ mod util;
 use config::Config;
 
 // Re-export so binary modules can use crate::<CommandEnum> while keeping a single source of truth.
-pub use zeroclaw::{
-    ChannelCommands, CronCommands, HardwareCommands, IntegrationCommands, MigrateCommands,
-    PeripheralCommands, ServiceCommands, SkillCommands,
+pub use zeroclawlabs::{
+    ChannelCommands, CronCommands, IntegrationCommands, MigrateCommands,
+    ServiceCommands, SkillCommands,
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
@@ -381,42 +377,6 @@ Discover and introspect USB hardware.
 Enumerate connected USB devices, identify known development boards \
 (STM32 Nucleo, Arduino, ESP32), and retrieve chip information via \
 probe-rs / ST-Link.
-
-Examples:
-  zeroclaw hardware discover
-  zeroclaw hardware introspect /dev/ttyACM0
-  zeroclaw hardware info --chip STM32F401RETx")]
-    Hardware {
-        #[command(subcommand)]
-        hardware_command: zeroclaw::HardwareCommands,
-    },
-
-    /// Manage hardware peripherals (STM32, RPi GPIO, etc.)
-    #[command(long_about = "\
-Manage hardware peripherals.
-
-Add, list, flash, and configure hardware boards that expose tools \
-to the agent (GPIO, sensors, actuators). Supported boards: \
-nucleo-f401re, rpi-gpio, esp32, arduino-uno.
-
-Examples:
-  zeroclaw peripheral list
-  zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-  zeroclaw peripheral add rpi-gpio native
-  zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-  zeroclaw peripheral flash-nucleo")]
-    Peripheral {
-        #[command(subcommand)]
-        peripheral_command: zeroclaw::PeripheralCommands,
-    },
-
-    /// Manage agent memory (list, get, stats, clear)
-    #[command(long_about = "\
-Manage agent memory entries.
-
-List, inspect, and clear memory entries stored by the agent. \
-Supports filtering by category and session, pagination, and \
-batch clearing with confirmation.
 
 Examples:
   zeroclaw memory stats
@@ -1036,14 +996,6 @@ async fn main() -> Result<()> {
         }
 
         Commands::Auth { auth_command } => handle_auth_command(auth_command, &config).await,
-
-        Commands::Hardware { hardware_command } => {
-            hardware::handle_command(hardware_command.clone(), &config)
-        }
-
-        Commands::Peripheral { peripheral_command } => {
-            peripherals::handle_command(peripheral_command.clone(), &config).await
-        }
 
         Commands::Config { config_command } => match config_command {
             ConfigCommands::Schema => {

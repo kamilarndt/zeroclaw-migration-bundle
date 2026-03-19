@@ -4,6 +4,7 @@
 
 use crate::memory::embeddings::EmbeddingProvider;
 use crate::memory::qdrant::QdrantMemory;
+use crate::memory::Memory; // Import Memory trait for recall/forget methods
 use anyhow::{Context, Result};
 use chrono::Utc;
 use parking_lot::Mutex;
@@ -37,7 +38,7 @@ impl Default for SkillsConfig {
 
 /// A skill stored in the database
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Skill {
+pub struct AgentSkill {
     pub id: Option<i64>,
     pub name: String,
     pub description: String,
@@ -46,14 +47,20 @@ pub struct Skill {
     pub author: Option<String>,
     pub tags: Vec<String>,
     pub is_active: bool,
+    #[serde(default)]
+    pub tools: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub prompts: Vec<String>,
+    #[serde(skip)]
+    pub location: Option<std::path::PathBuf>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
 
 /// Result from vector search with score
 #[derive(Debug, Clone)]
-pub struct SkillSearchResult {
-    pub skill: Skill,
+pub struct AgentSkillSearchResult {
+    pub skill: AgentSkill,
     pub score: f64,
 }
 
@@ -160,54 +167,57 @@ impl SkillsEngine {
     }
 
     /// Store a new skill or update existing one
-    pub async fn store_skill(&self, skill: &Skill) -> Result<i64> {
+    pub async fn store_skill(&self, skill: &AgentSkill) -> Result<i64> {
         self.ensure_initialized().await?;
 
         let tags_json = serde_json::to_string(&skill.tags)?;
         let now = Utc::now().to_rfc3339();
 
-        let conn = self.db.lock();
-        let skill_id: i64 = if let Some(id) = skill.id {
-            // Update existing skill
-            conn.execute(
-                r#"
-                UPDATE agent_skills
-                SET name = ?1, description = ?2, content = ?3,
-                    version = ?4, author = ?5, tags = ?6, is_active = ?7,
-                    updated_at = ?8
-                WHERE id = ?9
-                "#,
-                params![
-                    &skill.name,
-                    &skill.description,
-                    &skill.content,
-                    &skill.version,
-                    &skill.author,
-                    &tags_json,
-                    skill.is_active,
-                    &now,
-                    id,
-                ],
-            ).context("Failed to update skill")?;
-            id
-        } else {
-            // Insert new skill
-            conn.execute(
-                r#"
-                INSERT INTO agent_skills (name, description, content, version, author, tags, is_active)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                "#,
-                params![
-                    &skill.name,
-                    &skill.description,
-                    &skill.content,
-                    &skill.version,
-                    &skill.author,
-                    &tags_json,
-                    skill.is_active,
-                ],
-            ).context("Failed to insert skill")?;
-            conn.last_insert_rowid()
+        let skill_id: i64 = {
+            let conn = self.db.lock();
+            if let Some(id) = skill.id {
+                // Update existing skill
+                conn.execute(
+                    r#"
+                    UPDATE agent_skills
+                    SET name = ?1, description = ?2, content = ?3,
+                        version = ?4, author = ?5, tags = ?6, is_active = ?7,
+                        updated_at = ?8
+                    WHERE id = ?9
+                    "#,
+                    params![
+                        &skill.name,
+                        &skill.description,
+                        &skill.content,
+                        &skill.version,
+                        &skill.author,
+                        &tags_json,
+                        skill.is_active,
+                        &now,
+                        id,
+                    ],
+                ).context("Failed to update skill")?;
+                id
+            } else {
+                // Insert new skill
+                conn.execute(
+                    r#"
+                    INSERT INTO agent_skills (name, description, content, version, author, tags, is_active)
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                    "#,
+                    params![
+                        &skill.name,
+                        &skill.description,
+                        &skill.content,
+                        &skill.version,
+                        &skill.author,
+                        &tags_json,
+                        skill.is_active,
+                    ],
+                ).context("Failed to insert skill")?;
+                conn.last_insert_rowid()
+            }
+            // conn is dropped here
         };
 
         // Vectorize and upsert to Qdrant
@@ -217,7 +227,7 @@ impl SkillsEngine {
     }
 
     /// Upsert skill vector to Qdrant
-    async fn upsert_skill_to_qdrant(&self, skill_id: i64, skill: &Skill) -> Result<()> {
+    async fn upsert_skill_to_qdrant(&self, skill_id: i64, skill: &AgentSkill) -> Result<()> {
         use crate::memory::{Memory, MemoryCategory};
 
         // Create a unique key for Qdrant
@@ -236,7 +246,7 @@ impl SkillsEngine {
     }
 
     /// Get a skill by ID
-    pub async fn get_skill(&self, id: i64) -> Result<Option<Skill>> {
+    pub async fn get_skill(&self, id: i64) -> Result<Option<AgentSkill>> {
         self.ensure_initialized().await?;
 
         let conn = self.db.lock();
@@ -246,25 +256,28 @@ impl SkillsEngine {
         )?;
 
         let skill = stmt.query_row(params![id], |row| {
-            Ok(Skill {
+            Ok(AgentSkill {
                 id: Some(row.get(0)?),
                 name: row.get(1)?,
                 description: row.get(2)?,
                 content: row.get(3)?,
                 version: row.get(4)?,
                 author: row.get(5)?,
-                tags: serde_json::from_str(row.get::<_, String>(6)?).unwrap_or_default(),
+                tags: serde_json::from_str(&*row.get::<_, String>(6)?).unwrap_or_default(),
                 is_active: row.get(7)?,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
                 created_at: row.get(8)?,
                 updated_at: row.get(9)?,
             })
-        }).optional()?;
+        }).ok();
 
         Ok(skill)
     }
 
     /// Get a skill by name
-    pub async fn get_skill_by_name(&self, name: &str) -> Result<Option<Skill>> {
+    pub async fn get_skill_by_name(&self, name: &str) -> Result<Option<AgentSkill>> {
         self.ensure_initialized().await?;
 
         let conn = self.db.lock();
@@ -274,25 +287,28 @@ impl SkillsEngine {
         )?;
 
         let skill = stmt.query_row(params![name], |row| {
-            Ok(Skill {
+            Ok(AgentSkill {
                 id: Some(row.get(0)?),
                 name: row.get(1)?,
                 description: row.get(2)?,
                 content: row.get(3)?,
                 version: row.get(4)?,
                 author: row.get(5)?,
-                tags: serde_json::from_str(row.get::<_, String>(6)?).unwrap_or_default(),
+                tags: serde_json::from_str(&*row.get::<_, String>(6)?).unwrap_or_default(),
                 is_active: row.get(7)?,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
                 created_at: row.get(8)?,
                 updated_at: row.get(9)?,
             })
-        }).optional()?;
+        }).ok();
 
         Ok(skill)
     }
 
     /// List all skills
-    pub async fn list_skills(&self, active_only: bool) -> Result<Vec<Skill>> {
+    pub async fn list_skills(&self, active_only: bool) -> Result<Vec<AgentSkill>> {
         self.ensure_initialized().await?;
 
         let conn = self.db.lock();
@@ -306,15 +322,18 @@ impl SkillsEngine {
 
         let mut stmt = conn.prepare(query)?;
         let rows = stmt.query_map([], |row| {
-            Ok(Skill {
+            Ok(AgentSkill {
                 id: Some(row.get(0)?),
                 name: row.get(1)?,
                 description: row.get(2)?,
                 content: row.get(3)?,
                 version: row.get(4)?,
                 author: row.get(5)?,
-                tags: serde_json::from_str(row.get::<_, String>(6)?).unwrap_or_default(),
+                tags: serde_json::from_str(&*row.get::<_, String>(6)?).unwrap_or_default(),
                 is_active: row.get(7)?,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
                 created_at: row.get(8)?,
                 updated_at: row.get(9)?,
             })
@@ -332,7 +351,7 @@ impl SkillsEngine {
         &self,
         query: &str,
         threshold: f64,
-    ) -> Result<Vec<SkillSearchResult>> {
+    ) -> Result<Vec<AgentSkillSearchResult>> {
         self.ensure_initialized().await?;
 
         // Search Qdrant for matching skills
@@ -346,7 +365,7 @@ impl SkillsEngine {
             if let Some(skill) = self.get_skill_by_name(skill_name).await? {
                 if let Some(score) = entry.score {
                     if score >= threshold {
-                        results.push(SkillSearchResult { skill, score });
+                        results.push(AgentSkillSearchResult { skill, score });
                     }
                 }
             }
@@ -366,8 +385,10 @@ impl SkillsEngine {
         let skill = self.get_skill(id).await?;
         let skill_name = skill.as_ref().map(|s| s.name.clone());
 
-        let conn = self.db.lock();
-        let rows_affected = conn.execute("DELETE FROM agent_skills WHERE id = ?", params![id])?;
+        let rows_affected = {
+            let conn = self.db.lock();
+            conn.execute("DELETE FROM agent_skills WHERE id = ?", params![id])?
+        };
 
         if rows_affected > 0 {
             // Remove from Qdrant
@@ -395,7 +416,7 @@ mod tests {
 
     #[test]
     fn skill_serializes_correctly() {
-        let skill = Skill {
+        let skill = AgentSkill {
             id: None,
             name: "test".to_string(),
             description: "test desc".to_string(),
@@ -404,6 +425,9 @@ mod tests {
             author: Some("test".to_string()),
             tags: vec!["test".to_string(), "demo".to_string()],
             is_active: true,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
             created_at: None,
             updated_at: None,
         };

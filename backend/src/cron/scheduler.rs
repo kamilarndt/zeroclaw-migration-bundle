@@ -1,6 +1,6 @@
-use crate::channels::{
-    Channel, DiscordChannel, MattermostChannel, SendMessage, SlackChannel, TelegramChannel,
-};
+use crate::channels::{Channel, DiscordChannel, SendMessage, TelegramChannel};
+// Channel imports removed - channels deleted
+// use crate::channels::{DiscordChannel, MattermostChannel, SlackChannel, TelegramChannel};
 use crate::config::Config;
 use crate::cron::{
     due_jobs, next_run_for_schedule, record_last_run, record_run, remove_job, reschedule_after_run,
@@ -334,35 +334,8 @@ pub(crate) async fn deliver_announcement(
             );
             channel.send(&SendMessage::new(output, target)).await?;
         }
-        "slack" => {
-            let sl = config
-                .channels_config
-                .slack
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("slack channel not configured"))?;
-            let channel = SlackChannel::new(
-                sl.bot_token.clone(),
-                sl.channel_id.clone(),
-                sl.allowed_users.clone(),
-            );
-            channel.send(&SendMessage::new(output, target)).await?;
-        }
-        "mattermost" => {
-            let mm = config
-                .channels_config
-                .mattermost
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("mattermost channel not configured"))?;
-            let channel = MattermostChannel::new(
-                mm.url.clone(),
-                mm.bot_token.clone(),
-                mm.channel_id.clone(),
-                mm.allowed_users.clone(),
-                mm.thread_replies.unwrap_or(true),
-                mm.mention_only.unwrap_or(false),
-            );
-            channel.send(&SendMessage::new(output, target)).await?;
-        }
+        // Removed channels: Slack, Mattermost - channels deleted
+        "slack" | "mattermost" => anyhow::bail!("channel '{}' has been removed", channel),
         other => anyhow::bail!("unsupported delivery channel: {other}"),
     }
 

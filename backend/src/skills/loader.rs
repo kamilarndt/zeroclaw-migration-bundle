@@ -1,6 +1,7 @@
 //! Vector-based skill loader for dynamic prompt injection
 
-use super::engine::{Skill, SkillsEngine, SkillSearchResult};
+use super::engine::{SkillsEngine, AgentSkillSearchResult};
+use crate::skills::AgentSkill;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -8,7 +9,7 @@ use std::sync::Arc;
 #[async_trait]
 pub trait SkillLoader: Send + Sync {
     /// Load skills that match the query (vector search)
-    async fn load_matching_skills(&self, query: &str, threshold: f64) -> Result<Vec<Skill>, anyhow::Error>;
+    async fn load_matching_skills(&self, query: &str, threshold: f64) -> Result<Vec<AgentSkill>, anyhow::Error>;
 
     /// Enrich system prompt with matching skills
     async fn enrich_system_prompt(&self, query: &str, base_prompt: &str) -> Result<String, anyhow::Error>;
@@ -27,7 +28,7 @@ impl VectorSkillLoader {
     }
 
     /// Format a skill for injection into system prompt
-    fn format_skill_for_prompt(skill: &Skill) -> String {
+    fn format_skill_for_prompt(skill: &AgentSkill) -> String {
         format!(
             "## 🎯 {}\n\n**Description:** {}\n\n{}",
             skill.name,
@@ -39,7 +40,7 @@ impl VectorSkillLoader {
 
 #[async_trait]
 impl SkillLoader for VectorSkillLoader {
-    async fn load_matching_skills(&self, query: &str, threshold: f64) -> Result<Vec<Skill>, anyhow::Error> {
+    async fn load_matching_skills(&self, query: &str, threshold: f64) -> Result<Vec<AgentSkill>, anyhow::Error> {
         let results = self.engine.search_skills(query, threshold).await?;
         Ok(results.into_iter().map(|r| r.skill).collect())
     }
@@ -70,7 +71,7 @@ mod tests {
 
     #[test]
     fn format_skill_includes_all_fields() {
-        let skill = Skill {
+        let skill = AgentSkill {
             id: Some(1),
             name: "test-skill".to_string(),
             description: "A test skill".to_string(),
@@ -79,6 +80,9 @@ mod tests {
             author: None,
             tags: vec![],
             is_active: true,
+            tools: Vec::new(),
+            prompts: Vec::new(),
+            location: None,
             created_at: None,
             updated_at: None,
         };
