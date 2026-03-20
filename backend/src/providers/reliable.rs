@@ -20,17 +20,68 @@ fn is_non_retryable(err: &anyhow::Error) -> bool {
         return true;
     }
 
-    // 4xx errors are generally non-retryable (bad request, auth failure, etc.),
-    // except 429 (rate-limit — transient) and 408 (timeout — worth retrying).
+    // NEW: Check for transient connection errors FIRST (before other checks)
+    // Connection errors, timeouts, and network issues are RETRYABLE
     if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
+        // Check specific error types that indicate transient issues
+        if reqwest_err.is_connect() || reqwest_err.is_timeout() {
+            return false; // Connection/timeout errors are retryable
+        }
+
+        // Existing HTTP status check
         if let Some(status) = reqwest_err.status() {
             let code = status.as_u16();
             return status.is_client_error() && code != 429 && code != 408;
         }
     }
+
     // Fallback: parse status codes from stringified errors (some providers
     // embed codes in error messages rather than returning typed HTTP errors).
     let msg = err.to_string();
+    let msg_lower = msg.to_lowercase();
+
+    // NEW: Check for connection error hints in error message
+    // These indicate transient network issues that are RETRYABLE
+    let connection_hints = [
+        "error sending request",
+        "connection error",
+        "connection refused",
+        "connection reset",
+        "timed out",
+        "timeout",
+        "network",
+        "dns",
+        "hostname",
+        "tcp",
+        "socket",
+    ];
+
+    // If message contains connection hints AND NOT auth hints → RETRYABLE
+    let has_connection_hint = connection_hints.iter().any(|hint| msg_lower.contains(hint));
+
+    if has_connection_hint {
+        // Check if it's NOT an auth failure (auth failures are still non-retryable)
+        let auth_failure_hints = [
+            "invalid api key",
+            "incorrect api key",
+            "missing api key",
+            "api key not set",
+            "authentication failed",
+            "auth failed",
+            "unauthorized",
+            "forbidden",
+            "permission denied",
+            "access denied",
+            "invalid token",
+        ];
+
+        // Connection error without auth → RETRYABLE
+        if !auth_failure_hints.iter().any(|hint| msg_lower.contains(hint)) {
+            return false;
+        }
+    }
+
+    // Parse HTTP status codes from error message
     for word in msg.split(|c: char| !c.is_ascii_digit()) {
         if let Ok(code) = word.parse::<u16>() {
             if (400..500).contains(&code) {
@@ -41,7 +92,6 @@ fn is_non_retryable(err: &anyhow::Error) -> bool {
 
     // Heuristic: detect auth/model failures by keyword when no HTTP status
     // is available (e.g. gRPC or custom transport errors).
-    let msg_lower = msg.to_lowercase();
     let auth_failure_hints = [
         "invalid api key",
         "incorrect api key",
