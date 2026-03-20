@@ -27,6 +27,11 @@ out/
 
 # Qdrant storage
 qdrant_storage/
+backend/storage/
+
+# All storage directories (vector DBs, caches, etc.)
+storage/
+**/storage/
 
 # Environment and secrets
 .env
