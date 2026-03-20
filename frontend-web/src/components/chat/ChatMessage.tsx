@@ -54,31 +54,39 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </div>
           )}
 
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-              code: ({ className, children }: any) => {
-                const match = /language-(\w+)/.exec(className || '')
-                const isInline = !match && !className
-                if (isInline) {
-                  return <code className="px-1 py-0.5 bg-black/20 rounded text-sm">{children}</code>
-                }
-                return (
-                  <code className={className}>
+          <div className="prose prose-invert max-w-none whitespace-pre-wrap">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="ml-4">{children}</li>,
+                h1: ({ children }) => <h1 className="text-xl font-bold mb-2 mt-4">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 mt-3">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-bold mb-2 mt-2">{children}</h3>,
+                code: ({ className, children }: any) => {
+                  const match = /language-(\w+)/.exec(className || '')
+                  const isInline = !match && !className
+                  if (isInline) {
+                    return <code className="px-1 py-0.5 bg-black/20 rounded text-sm">{children}</code>
+                  }
+                  return (
+                    <code className={className}>
+                      {children}
+                    </code>
+                  )
+                },
+                pre: ({ children }) => (
+                  <pre className="overflow-x-auto p-3 bg-black/40 rounded-lg text-sm my-2">
                     {children}
-                  </code>
+                  </pre>
                 )
-              },
-              pre: ({ children }) => (
-                <pre className="overflow-x-auto p-3 bg-black/40 rounded-lg text-sm">
-                  {children}
-                </pre>
-              )
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
         </div>
 
         {/* Timestamp */}
