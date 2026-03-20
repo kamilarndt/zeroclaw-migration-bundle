@@ -21,7 +21,7 @@ const BOOTSTRAP_MAX_CHARS: usize = 20_000;
 /// - Typography: Sans-serif, geometric, wysoka czytelność
 /// - Spacing: Generous, rhythm-based (8px grid)
 /// - Colors: Monochromatic z akcentami (subtle gradients)
-const UNCODEX_5_GUIDELINES: &str = r#"
+pub const UNCODEX_5_GUIDELINES: &str = r#"
 ## Uncodex-5 Enterprise UI Design Guidelines
 
 When generating UI code (React, TypeScript, CSS), follow these principles:

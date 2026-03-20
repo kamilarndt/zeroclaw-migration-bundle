@@ -50,7 +50,7 @@ pub(crate) mod daemon;
 pub(crate) mod doctor;
 pub mod gateway;
 // pub(crate) mod hardware; // Removed - hardware module deleted
-pub(crate) mod health;
+pub mod health;
 pub(crate) mod heartbeat;
 pub mod hooks;
 pub(crate) mod identity;
