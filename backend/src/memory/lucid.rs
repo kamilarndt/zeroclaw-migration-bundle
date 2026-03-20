@@ -383,6 +383,17 @@ impl Memory for LucidMemory {
     async fn health_check(&self) -> bool {
         self.local.health_check().await
     }
+
+    async fn save_ingress(
+        &self,
+        channel: &str,
+        sender: &str,
+        content: &str,
+        timestamp: u64,
+    ) -> anyhow::Result<()> {
+        self.local.save_ingress(channel, sender, content, timestamp).await
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

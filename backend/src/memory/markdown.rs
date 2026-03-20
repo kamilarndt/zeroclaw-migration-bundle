@@ -225,6 +225,17 @@ impl Memory for MarkdownMemory {
         self.workspace_dir.exists()
     }
 
+    async fn save_ingress(
+        &self,
+        _channel: &str,
+        _sender: &str,
+        _content: &str,
+        _timestamp: u64,
+    ) -> anyhow::Result<()> {
+        // Markdown memory is read-only, ignore ingress
+        Ok(())
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

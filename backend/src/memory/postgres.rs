@@ -337,6 +337,43 @@ impl Memory for PostgresMemory {
             .await
             .unwrap_or(false)
     }
+
+    async fn save_ingress(
+        &self,
+        channel: &str,
+        sender: &str,
+        content: &str,
+        timestamp: u64,
+    ) -> anyhow::Result<()> {
+        use chrono::DateTime;
+
+        let client = self.client.clone();
+        let channel = channel.to_string();
+        let sender = sender.to_string();
+        let content = content.to_string();
+        let table = self.qualified_table.clone();
+
+        tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+            let mut client = client.lock();
+            let id = Uuid::new_v4();
+            let key = format!("ingress_{}_{}_{}", channel, sender, timestamp);
+            let now = Utc::now();
+
+            client.execute(
+                &format!(
+                    "INSERT INTO {} (id, key, content, category, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6)
+                     ON CONFLICT (key) DO UPDATE SET
+                        content = EXCLUDED.content,
+                        updated_at = EXCLUDED.updated_at",
+                    table
+                ),
+                &[&id, &key, &content, &"conversation", &now, &now],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
 }
 
 #[cfg(test)]

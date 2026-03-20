@@ -1336,3 +1336,81 @@ async fn run_single_delegates_to_turn() {
         "Expected non-empty response from run_single"
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 26. Ingress-First Journaling - Discord messages saved BEFORE LLM processing
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+async fn discord_message_saved_to_database_before_llm_processing() {
+    use crate::channels::traits::ChannelMessage;
+
+    // Setup: Create SQLite memory to verify database writes
+    let (mem, _tmp_dir) = make_sqlite_memory();
+
+    // Create agent with SQLite memory
+    let provider = Box::new(ScriptedProvider::new(vec![
+        text_response("LLM response"),
+    ]));
+
+    let mut agent = Agent::builder()
+        .provider(provider)
+        .tools(vec![]) // Empty tools vector - required by Agent
+        .memory(mem.clone())
+        .observer(make_observer())
+        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .workspace_dir(std::env::temp_dir())
+        .auto_save(false) // Disable auto-save, we test manual ingress saving
+        .build()
+        .unwrap();
+
+    // Create Discord message
+    let discord_msg = ChannelMessage {
+        id: "discord_test_001".to_string(),
+        sender: "546426705560993802".to_string(), // Discord user ID
+        reply_target: "".to_string(),
+        content: "Test Discord message".to_string(),
+        channel: "discord".to_string(),
+        timestamp: 1742385600, // 2025-03-19
+        thread_ts: None,
+    };
+
+    // ACT: Send message to agent (simulating channel receive)
+    // This should trigger ingress-first journaling BEFORE LLM processing
+
+    // First, verify message is NOT in database yet
+    let entries_before = mem
+        .recall(&discord_msg.sender, 100, None)
+        .await
+        .unwrap();
+    let discord_count_before = entries_before
+        .iter()
+        .filter(|e| e.key.contains("discord") || e.key.contains(&discord_msg.sender))
+        .count();
+
+    // Process the message (this is where the bug exists)
+    let _response = agent.turn(&discord_msg.content).await.unwrap();
+
+    // VERIFY: Message should be saved to database IMMEDIATELY
+    let entries_after = mem
+        .recall(&discord_msg.sender, 100, None)
+        .await
+        .unwrap();
+
+    let discord_count_after = entries_after
+        .iter()
+        .filter(|e| e.key.contains("discord") || e.key.contains(&discord_msg.sender))
+        .count();
+
+    // This assertion WILL FAIL initially (RED phase) - that's expected!
+    // The bug: Discord messages are only saved AFTER LLM processing, not BEFORE
+    assert_eq!(
+        discord_count_after,
+        discord_count_before + 1,
+        "Discord message NOT saved to database before LLM processing! \
+        Expected {} Discord entries, found {}. \
+        This is the Persistence Gap bug - messages must be saved on ingress, not egress.",
+        discord_count_before + 1,
+        discord_count_after
+    );
+}

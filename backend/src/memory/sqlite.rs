@@ -863,6 +863,36 @@ impl Memory for SqliteMemory {
             .unwrap_or(false)
     }
 
+    async fn save_ingress(
+        &self,
+        channel: &str,
+        sender: &str,
+        content: &str,
+        timestamp: u64,
+    ) -> anyhow::Result<()> {
+        // Ingress-first journaling: save immediately upon receipt
+        let conn = self.conn.clone();
+        let channel = channel.to_string();
+        let sender = sender.to_string();
+        let content = content.to_string();
+
+        tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+            let conn = conn.lock();
+            let now = Local::now().to_rfc3339();
+            let id = Uuid::new_v4().to_string();
+            let key = format!("ingress_{}_{}_{}", channel, sender, timestamp);
+
+            // Store as conversation memory (entry-point messages)
+            conn.execute(
+                "INSERT INTO memories (id, key, content, category, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![id, key, content, "conversation", now, now],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

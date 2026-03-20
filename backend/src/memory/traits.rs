@@ -98,6 +98,16 @@ pub trait Memory: Send + Sync {
 
     /// Get a reference for downcasting to concrete types
     fn as_any(&self) -> &dyn std::any::Any;
+
+    /// Save incoming message immediately upon receipt (ingress-first journaling)
+    /// This ensures messages are persisted BEFORE LLM processing to prevent data loss
+    async fn save_ingress(
+        &self,
+        channel: &str,
+        sender: &str,
+        content: &str,
+        timestamp: u64,
+    ) -> anyhow::Result<()>;
 }
 
 /// Intent metadata for memory classification

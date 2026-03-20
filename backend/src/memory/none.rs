@@ -63,6 +63,16 @@ impl Memory for NoneMemory {
         true
     }
 
+    async fn save_ingress(
+        &self,
+        _channel: &str,
+        _sender: &str,
+        _content: &str,
+        _timestamp: u64,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

@@ -575,6 +575,18 @@ impl Memory for QdrantMemory {
 
         matches!(resp, Ok(r) if r.status().is_success())
     }
+
+    async fn save_ingress(
+        &self,
+        _channel: &str,
+        _sender: &str,
+        _content: &str,
+        _timestamp: u64,
+    ) -> anyhow::Result<()> {
+        // Qdrant is read-only vector search, ignore ingress
+        Ok(())
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
