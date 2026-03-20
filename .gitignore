@@ -73,3 +73,31 @@ coverage/
 # Git worktrees (isolated workspaces)
 .worktrees/
 worktrees/
+
+# ===== ZEROCLAW SPECIFIC =====
+# Runtime directories
+.zeroclaw/memory/
+.zeroclaw/qdrant_storage/
+.zeroclaw/logs/
+
+# ZeroClaw databases
+brain.db
+quota.db
+usage.db
+
+# Qdrant initialized marker
+.qdrant-initialized
+
+# AI assistant memory
+.claude/
+.memory/
+
+# Frontend specific
+frontend-web/.vite/
+frontend-web/vite-env.d.ts
+frontend-web/coverage/
+frontend-web/playwright-report/
+frontend-web/test-results/
+
+# Snapshots temp
+snapshots/tmp/

@@ -1,0 +1,56 @@
+{
+  "name": "zeroclaw-os-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZeroClaw OS - AI Agent Swarm Command Center (Monorepo)",
+  "workspaces": [
+    "frontend-web",
+    "frontend-portal"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:web && npm run install:portal",
+    "install:web": "cd frontend-web && npm install",
+    "install:portal": "cd frontend-portal && npm install",
+    "build": "npm run build:web && npm run build:portal",
+    "build:web": "cd frontend-web && npm run build",
+    "build:portal": "cd frontend-portal && npm run build",
+    "dev": "npm run dev:web",
+    "dev:web": "cd frontend-web && npm run dev",
+    "dev:portal": "cd frontend-portal && npm run dev",
+    "test": "npm run test:web",
+    "test:web": "cd frontend-web && npm test",
+    "test:e2e": "cd frontend-web && npm run test:e2e",
+    "lint": "npm run lint:web",
+    "lint:web": "cd frontend-web && npm run lint",
+    "type-check": "npm run type-check:web",
+    "type-check:web": "cd frontend-web && npm run type-check",
+    "clean": "rm -rf frontend-web/node_modules frontend-web/dist frontend-portal/node_modules frontend-portal/dist node_modules",
+    "backend:build": "cd backend && cargo build --release",
+    "backend:test": "cd backend && cargo test",
+    "backend:install": "cd backend && cargo install --path .",
+    "full:build": "npm run backend:build && npm run build",
+    "full:test": "npm run backend:test && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zeroclaw-labs/zeroclaw.git"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "swarm",
+    "rust",
+    "react",
+    "typescript",
+    "zeroclaw"
+  ],
+  "author": "ZeroClaw Labs",
+  "license": "MIT OR Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^20.11.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "rust": ">=1.87"
+  }
+}

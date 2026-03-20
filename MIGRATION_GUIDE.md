@@ -2,7 +2,72 @@
 
 **Purpose:** Complete guide for deploying ZeroClaw OS on a fresh Ubuntu server from this migration bundle.
 
-**Last Updated:** 2026-03-10
+**Last Updated:** 2026-03-20
+
+**Migration Bundle Version:** 1.0.0
+
+**Backend Version:** 0.1.7
+
+**Frontend Version:** 1.0.0
+
+---
+
+## ⚡ Quick Start (5 minutes)
+
+```bash
+# Copy to server and run
+scp -r zeroclaw-migration-bundle/ user@server:~/
+ssh user@server
+
+# Install dependencies
+cd ~/zeroclaw-migration-bundle
+sudo apt update && sudo apt install -y curl wget git build-essential pkg-config libssl-dev
+
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER && newgrp docker
+
+# Build and deploy
+cd backend && cargo install --path .
+cd ../frontend-web && npm install && npm run build
+mkdir -p ~/.zeroclaw/web && cp -r dist/* ~/.zeroclaw/web/
+cp ../config/config.toml ~/.zeroclaw/
+```
+
+Then configure your API keys in `~/.zeroclaw/config.toml` and run `zeroclaw daemon`.
+
+---
+
+## 🆕 What's New in v1.0.0 (2026-03-20)
+
+### Complete Package Structure
+- **README.md** - Comprehensive documentation
+- **CHANGELOG.md** - Version history
+- **package.json** - Root workspace management
+- Updated **.gitignore** with ZeroClaw-specific rules
+
+### Backend v0.1.7 Highlights
+- **Smart Routing** - Automatic model selection based on quota and task type
+- **Multi-Provider** - Z.AI, OpenRouter, NVIDIA NIM, Mistral, Ollama
+- **Quota Tracking** - State machine (Normal → Conserving → Critical)
+- **Benchmark System** - Performance-based optimization
+- **Chat Persistence** - SQLite storage with vector search (Qdrant)
+
+### Frontend v1.0.0 Highlights
+- **React 19** + TypeScript strict mode
+- **Zustand** state management
+- **ReactFlow** workflow editor
+- **Recharts** metrics visualization
+- **PWA** capabilities
 
 ---
 
