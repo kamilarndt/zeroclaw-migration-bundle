@@ -50,6 +50,7 @@ pub fn truncate_with_ellipsis(s: &str, max_chars: usize) -> String {
 /// - Ensures list items (-, *, 1.) start on new lines
 /// - Ensures code blocks have proper spacing
 /// - Adds paragraph breaks between sections
+/// - **Splits text that has no newlines (wall of text)**
 ///
 /// # Arguments
 /// * `s` - The Markdown string to normalize
@@ -57,8 +58,58 @@ pub fn truncate_with_ellipsis(s: &str, max_chars: usize) -> String {
 /// # Returns
 /// * Formatted Markdown with proper line breaks and structure
 pub fn normalize_markdown(s: &str) -> String {
+    // First, add newlines around special patterns if text has no newlines
+    let preprocessed = if !s.contains('\n') || s.lines().filter(|l| !l.trim().is_empty()).count() <= 2 {
+        // Text is mostly one line - split it up
+        let mut temp = s.to_string();
+
+        // Add newlines before headers
+        while temp.contains("##") && !temp.starts_with("\n\n##") {
+            temp = temp.replace("##", "\n\n##");
+        }
+        while temp.contains("###") && !temp.starts_with("\n\n###") {
+            temp = temp.replace("###", "\n\n###");
+        }
+
+        // Add newlines before list items (but not inside code blocks)
+        if !temp.contains("```") {
+            // Simple list items
+            temp = temp.replace(" - ", "\n- ");
+            temp = temp.replace(" * ", "\n* ");
+
+            // Numbered lists - look for "1. ", "2. " etc at sentence starts
+            for i in 1..=10 {
+                temp = temp.replace(&format!("{}.", i), &format!("\n{}.", i));
+            }
+        }
+
+        // Add newlines around code blocks
+        temp = temp.replace("```", "\n```\n");
+
+        // Split long text into paragraphs (every 3-4 sentences)
+        let sentences: Vec<&str> = temp.split(". ").collect();
+        if sentences.len() > 4 {
+            let mut with_paras = String::new();
+            for (i, sentence) in sentences.iter().enumerate() {
+                with_paras.push_str(*sentence);
+                if i < sentences.len() - 1 {
+                    with_paras.push_str(". ");
+                    // Add paragraph break every 3-4 sentences
+                    if (i + 1) % 4 == 0 {
+                        with_paras.push_str("\n\n");
+                    }
+                }
+            }
+            with_paras
+        } else {
+            temp
+        }
+    } else {
+        s.to_string()
+    };
+
     let mut result = String::new();
-    let mut lines: Vec<&str> = s.lines().collect();
+    let mut lines: Vec<&str> = preprocessed.lines().collect();
 
     let mut i = 0;
     while i < lines.len() {

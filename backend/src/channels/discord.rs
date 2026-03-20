@@ -490,6 +490,16 @@ impl Channel for DiscordChannel {
         // Strip tool call tags and normalize Markdown formatting
         let raw_content = crate::channels::telegram::strip_tool_call_tags(&message.content);
         let formatted_content = normalize_markdown(&raw_content);
+
+        // Debug log - compare raw vs formatted
+        tracing::debug!(
+            raw_len = raw_content.len(),
+            formatted_len = formatted_content.len(),
+            newlines_in_raw = raw_content.matches('\n').count(),
+            newlines_in_formatted = formatted_content.matches('\n').count(),
+            "discord: markdown formatting applied"
+        );
+
         let (cleaned_content, parsed_attachments) = parse_attachment_markers(&formatted_content);
         let (mut local_files, remote_urls, unresolved_markers) =
             classify_outgoing_attachments(&parsed_attachments);
