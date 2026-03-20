@@ -166,6 +166,16 @@ mod tests {
             true
         }
 
+        async fn save_ingress(
+            &self,
+            _channel: &str,
+            _sender: &str,
+            _content: &str,
+            _timestamp: u64,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+
         fn name(&self) -> &str {
             "mock"
         }
@@ -218,6 +228,16 @@ mod tests {
 
         async fn health_check(&self) -> bool {
             true
+        }
+
+        async fn save_ingress(
+            &self,
+            _channel: &str,
+            _sender: &str,
+            _content: &str,
+            _timestamp: u64,
+        ) -> anyhow::Result<()> {
+            Ok(())
         }
 
         fn name(&self) -> &str {

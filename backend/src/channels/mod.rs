@@ -2142,6 +2142,27 @@ async fn run_message_dispatch_loop(
                 }
             }
 
+            // KROK 1: Ingress-First Journaling
+            // Save message to database IMMEDIATELY upon receipt, BEFORE LLM processing
+            // This ensures messages are persisted even if LLM processing fails
+            tracing::trace!(
+                channel = %msg.channel,
+                sender = %msg.sender,
+                content_len = msg.content.len(),
+                timestamp = msg.timestamp,
+                "Saving ingress message to database"
+            );
+            if let Err(e) = worker_ctx
+                .memory
+                .save_ingress(&msg.channel, &msg.sender, &msg.content, msg.timestamp)
+                .await
+            {
+                tracing::warn!("Failed to save ingress message: {}", e);
+                // Continue anyway - don't block on save failure
+            } else {
+                tracing::debug!("Ingress message saved successfully");
+            }
+
             process_channel_message(worker_ctx, msg, cancellation_token).await;
 
             if interrupt_enabled {
@@ -2226,6 +2247,7 @@ pub fn build_system_prompt(
         bootstrap_max_chars,
         false,
         crate::config::SkillsPromptInjectionMode::Full,
+        crate::security::AutonomyLevel::Supervised, // Default to supervised for compatibility
     )
 }
 
@@ -2238,6 +2260,7 @@ pub fn build_system_prompt_with_mode(
     bootstrap_max_chars: Option<usize>,
     native_tools: bool,
     skills_prompt_mode: crate::config::SkillsPromptInjectionMode,
+    autonomy_level: crate::security::AutonomyLevel,
 ) -> String {
     use std::fmt::Write;
     let mut prompt = String::with_capacity(8192);
@@ -2291,14 +2314,39 @@ pub fn build_system_prompt_with_mode(
     }
 
     // ── 2. Safety ───────────────────────────────────────────────
-    prompt.push_str("## Safety\n\n");
-    prompt.push_str(
-        "- Do not exfiltrate private data.\n\
-         - Do not run destructive commands without asking.\n\
-         - Do not bypass oversight or approval mechanisms.\n\
-         - Prefer `trash` over `rm` (recoverable beats gone forever).\n\
-         - When in doubt, ask before acting externally.\n\n",
-    );
+    // Safety section depends on autonomy level
+    match autonomy_level {
+        crate::security::AutonomyLevel::Full => {
+            // Full autonomy: Minimal safety restrictions, user has full trust
+            prompt.push_str("## Safety\n\n");
+            prompt.push_str(
+                "- You have FULL AUTONOMY - execute commands freely.\n\
+                 - The user has configured you with full trust - use tools without hesitation.\n\
+                 - Do NOT refuse to run commands like npm, npx, pytest, etc.\n\
+                 - Do NOT invent security excuses or ask for permission.\n\
+                 - Just execute what the user requests.\n\n",
+            );
+        }
+        crate::security::AutonomyLevel::Supervised => {
+            // Supervised: Standard safety warnings
+            prompt.push_str("## Safety\n\n");
+            prompt.push_str(
+                "- Do not exfiltrate private data.\n\
+                 - Ask before running potentially destructive commands.\n\
+                 - Prefer `trash` over `rm` (recoverable beats gone forever).\n\
+                 - When in doubt, ask before acting externally.\n\n",
+            );
+        }
+        crate::security::AutonomyLevel::ReadOnly => {
+            // Read-only: Strict safety restrictions
+            prompt.push_str("## Safety\n\n");
+            prompt.push_str(
+                "- You are in READ-ONLY mode - no modifications allowed.\n\
+                 - Do NOT run commands that modify files or system state.\n\
+                 - Only read and analyze - never write or execute.\n\n",
+            );
+        }
+    }
 
     // ── 3. Skills (full or compact, based on config) ─────────────
     if !skills.is_empty() {
@@ -2940,6 +2988,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         bootstrap_max_chars,
         native_tools,
         config.skills.prompt_injection_mode,
+        config.autonomy.level,
     );
     if !native_tools {
         system_prompt.push_str(&build_tool_instructions(tools_registry.as_ref()));
@@ -5255,6 +5304,7 @@ BTC is currently around $65,000 based on latest tool output."#
             None,
             false,
             crate::config::SkillsPromptInjectionMode::Compact,
+            crate::config::AutonomyLevel::Supervised,
         );
 
         assert!(prompt.contains("<available_skills>"), "missing skills XML");

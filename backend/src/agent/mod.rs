@@ -14,6 +14,9 @@ pub mod workspace;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod ingress_tests;
+
 #[allow(unused_imports)]
 pub use agent::{Agent, AgentBuilder};
 #[allow(unused_imports)]

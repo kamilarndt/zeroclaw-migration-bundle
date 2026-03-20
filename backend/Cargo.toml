@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/robot-kit", "crates/quota-tracker", "crates/usage-logger"]
+members = [".", "crates/quota-tracker", "crates/usage-logger"]
 resolver = "2"
 
 [package]
@@ -107,6 +107,10 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 chrono-tz = "0.10"
 cron = "0.15"
+
+# Workspace crates
+quota-tracker = { path = "crates/quota-tracker" }
+usage-logger = { path = "crates/usage-logger" }
 
 # Interactive CLI prompts
 dialoguer = { version = "0.12", features = ["fuzzy-select"] }

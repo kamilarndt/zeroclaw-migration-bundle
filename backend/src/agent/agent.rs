@@ -581,6 +581,17 @@ impl Agent {
         });
 
         while let Some(msg) = rx.recv().await {
+            // KROK 1: Ingress-First Journaling
+            // Save message to database IMMEDIATELY upon receipt, BEFORE LLM processing
+            if let Err(e) = self
+                .memory
+                .save_ingress(&msg.channel, &msg.sender, &msg.content, msg.timestamp)
+                .await
+            {
+                tracing::warn!("Failed to save ingress message: {}", e);
+                // Continue anyway - don't block on save failure
+            }
+
             let response = match self.turn(&msg.content).await {
                 Ok(resp) => resp,
                 Err(e) => {

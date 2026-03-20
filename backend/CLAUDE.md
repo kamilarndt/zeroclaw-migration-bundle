@@ -1,5 +1,7 @@
 # ZeroClaw CLAU.md
 
+> **NOTE**: This is the backend-specific documentation. For the full system documentation, see [CLAUDE.md](../../../../CLAUDE.md) in the main workspace.
+
 ## Project Overview
 
 ZeroClaw is a fast, lightweight AI assistant built in Rust with smart routing capabilities. This document provides context for AI assistants working on this codebase.

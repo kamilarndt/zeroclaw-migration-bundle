@@ -6,7 +6,7 @@ use rusqlite::Connection;
 pub fn get_best_model_for_task(
     conn: &Connection,
     task_hint: &str,
-    min_samples: i64,
+    min_samples: &str,
 ) -> Option<String> {
     let result: Option<String> = conn.query_row(
         "SELECT model FROM metrics
@@ -41,7 +41,7 @@ pub fn analyze_routing(conn: &Connection) -> Result<Vec<RoutingSuggestion>, Box<
 
     for task_result in task_rows {
         let (task_hint, count) = task_result?;
-        if let Some(best_model) = get_best_model_for_task(conn, &task_hint, 10) {
+        if let Some(best_model) = get_best_model_for_task(conn, &task_hint, "10") {
             suggestions.push(RoutingSuggestion {
                 task_hint,
                 recommended_model: best_model,
