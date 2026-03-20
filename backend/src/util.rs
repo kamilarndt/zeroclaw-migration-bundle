@@ -43,6 +43,128 @@ pub fn truncate_with_ellipsis(s: &str, max_chars: usize) -> String {
     }
 }
 
+/// Normalize Markdown formatting to ensure proper rendering.
+///
+/// This function fixes common formatting issues:
+/// - Ensures headers (##, ###) are on their own lines
+/// - Ensures list items (-, *, 1.) start on new lines
+/// - Ensures code blocks have proper spacing
+/// - Adds paragraph breaks between sections
+///
+/// # Arguments
+/// * `s` - The Markdown string to normalize
+///
+/// # Returns
+/// * Formatted Markdown with proper line breaks and structure
+pub fn normalize_markdown(s: &str) -> String {
+    let mut result = String::new();
+    let mut lines: Vec<&str> = s.lines().collect();
+
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i].trim();
+        let next_line = if i + 1 < lines.len() {
+            lines[i + 1].trim()
+        } else {
+            ""
+        };
+
+        // Empty line - add as paragraph break
+        if line.is_empty() {
+            if !result.ends_with("\n\n") {
+                result.push_str("\n\n");
+            }
+            i += 1;
+            continue;
+        }
+
+        // Code block handling
+        if line.starts_with("```") {
+            if !result.ends_with("\n") {
+                result.push('\n');
+            }
+            result.push_str(line);
+            result.push('\n');
+            i += 1;
+
+            // Find closing ```
+            while i < lines.len() && !lines[i].trim().starts_with("```") {
+                result.push_str(lines[i]);
+                result.push('\n');
+                i += 1;
+            }
+
+            if i < lines.len() {
+                result.push_str(lines[i].trim());
+                result.push_str("\n\n");
+                i += 1;
+            }
+            continue;
+        }
+
+        // Headers (##, ###, etc.)
+        if line.starts_with('#') {
+            if !result.ends_with("\n\n") {
+                result.push_str("\n\n");
+            }
+            result.push_str(line);
+            result.push_str("\n\n");
+            i += 1;
+            continue;
+        }
+
+        // List items (-, *, 1., 2., etc.)
+        if line.starts_with("- ")
+            || line.starts_with("* ")
+            || (line.len() > 2 && line.chars().next().map_or(false, |c| c.is_numeric())
+                && line.chars().nth(1) == Some('.'))
+        {
+            if !result.ends_with('\n') && !result.is_empty() {
+                result.push('\n');
+            }
+            result.push_str(line);
+            result.push('\n');
+            i += 1;
+            continue;
+        }
+
+        // Horizontal rule
+        if line == "---" || line == "***" {
+            if !result.ends_with("\n\n") {
+                result.push_str("\n\n");
+            }
+            result.push_str(line);
+            result.push_str("\n\n");
+            i += 1;
+            continue;
+        }
+
+        // Regular text - add to current paragraph
+        if !result.is_empty() && !result.ends_with(' ') {
+            result.push(' ');
+        }
+        result.push_str(line);
+
+        // If next line is a header, list, or empty, end paragraph
+        if next_line.is_empty()
+            || next_line.starts_with('#')
+            || next_line.starts_with("- ")
+            || next_line.starts_with("* ")
+        {
+            result.push_str("\n\n");
+        }
+
+        i += 1;
+    }
+
+    // Clean up: remove excessive newlines
+    while result.contains("\n\n\n\n") {
+        result = result.replace("\n\n\n\n", "\n\n");
+    }
+
+    result.trim().to_string()
+}
+
 /// Utility enum for handling optional values.
 pub enum MaybeSet<T> {
     Set(T),

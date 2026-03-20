@@ -1,4 +1,5 @@
 use super::traits::{Channel, ChannelMessage, SendMessage};
+use crate::util::normalize_markdown;
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use parking_lot::Mutex;
@@ -486,8 +487,10 @@ impl Channel for DiscordChannel {
     }
 
     async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
+        // Strip tool call tags and normalize Markdown formatting
         let raw_content = crate::channels::telegram::strip_tool_call_tags(&message.content);
-        let (cleaned_content, parsed_attachments) = parse_attachment_markers(&raw_content);
+        let formatted_content = normalize_markdown(&raw_content);
+        let (cleaned_content, parsed_attachments) = parse_attachment_markers(&formatted_content);
         let (mut local_files, remote_urls, unresolved_markers) =
             classify_outgoing_attachments(&parsed_attachments);
 

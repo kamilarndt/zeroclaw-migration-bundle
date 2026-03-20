@@ -4,6 +4,7 @@ use super::telegram_circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, Circ
 use super::telegram_menu_button::{MenuButtonConfig};
 use crate::config::{Config, StreamMode};
 use crate::security::pairing::PairingGuard;
+use crate::util::normalize_markdown;
 use anyhow::Context;
 use async_trait::async_trait;
 use directories::UserDirs;
@@ -2565,8 +2566,9 @@ impl Channel for TelegramChannel {
     }
 
     async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
-        // Strip tool_call tags before processing to prevent Markdown parsing failures
-        let content = strip_tool_call_tags(&message.content);
+        // Strip tool_call tags and normalize Markdown formatting
+        let raw_content = strip_tool_call_tags(&message.content);
+        let content = normalize_markdown(&raw_content);
 
         // Parse recipient: "chat_id" or "chat_id:thread_id" format
         let (chat_id, thread_id) = match message.recipient.split_once(':') {
