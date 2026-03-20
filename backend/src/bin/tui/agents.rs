@@ -25,7 +25,17 @@ impl ZeroClawClient {
 
     /// Create with default localhost URL
     pub fn localhost() -> Self {
-        Self::new("http://127.0.0.1:42617".to_string())
+        Self::new("http://127.0.0.1:42517".to_string())
+    }
+
+    /// Test connection to Gateway
+    pub async fn test_connection(&self) -> Result<()> {
+        self.http
+            .get(format!("{}/api/health", self.base_url))
+            .send()
+            .await?
+            .error_for_status()?;
+        Ok(())
     }
 
     /// Send a message to the current session
@@ -200,6 +210,6 @@ mod tests {
     #[test]
     fn test_zeroclaw_client_localhost() {
         let client = ZeroClawClient::localhost();
-        assert_eq!(client.base_url, "http://127.0.0.1:42617");
+        assert_eq!(client.base_url, "http://127.0.0.1:42517");
     }
 }
