@@ -12,6 +12,75 @@ use super::tasks_section::TasksSection;
 
 const BOOTSTRAP_MAX_CHARS: usize = 20_000;
 
+/// Uncodex-5: Enterprise UI Design Guidelines (Vercel Style)
+///
+/// Zasady projektowania interfejsów zgodne z Vercel Design System:
+/// - Matowe szkło (glassmorphism) z subtelnymi borderami
+/// - Czarne tła (#000, #111) z wysokim kontrastem
+/// - Minimalizm: zero clutter, brak dekoracji
+/// - Typography: Sans-serif, geometric, wysoka czytelność
+/// - Spacing: Generous, rhythm-based (8px grid)
+/// - Colors: Monochromatic z akcentami (subtle gradients)
+const UNCODEX_5_GUIDELINES: &str = r#"
+## Uncodex-5 Enterprise UI Design Guidelines
+
+When generating UI code (React, TypeScript, CSS), follow these principles:
+
+### Color Palette
+- Background: #000000, #111111, #222222
+- Surface: rgba(255, 255, 255, 0.05) with blur
+- Border: rgba(255, 255, 255, 0.1)
+- Text Primary: #FFFFFF
+- Text Secondary: rgba(255, 255, 255, 0.7)
+- Accent: #0070F3 (Vercel blue) - use sparingly
+
+### Typography
+- Font: Inter, system-ui, -apple-system, sans-serif
+- Sizes: 12px (small), 14px (base), 16px (medium), 20px (large)
+- Weights: 400 (normal), 500 (medium), 600 (semibold)
+- Line Height: 1.5 for body, 1.2 for headings
+
+### Spacing
+- Base unit: 8px
+- Padding: 8px, 16px, 24px, 32px
+- Margin: 8px, 16px, 24px, 32px
+- Gap: 8px, 16px
+
+### Components
+- Buttons: Flat, no shadows, subtle hover states
+- Inputs: Transparent background, subtle borders
+- Cards: Glassmorphism with backdrop-filter: blur(10px)
+- Modals: Center-aligned, generous padding
+
+### Glassmorphism
+```css
+background: rgba(255, 255, 255, 0.05);
+backdrop-filter: blur(10px);
+border: 1px solid rgba(255, 255, 255, 0.1);
+border-radius: 8px;
+```
+
+### Dark Mode (Default)
+All UI should be dark-first. Avoid light mode unless explicitly requested.
+
+### Accessibility
+- Contrast ratio: 4.5:1 minimum
+- Focus indicators: Visible, high contrast
+- Touch targets: Minimum 44x44px
+
+### Performance
+- CSS-in-JS: Prefer styled-components or emotion
+- Animations: Subtle, 60fps, no layout thrashing
+- Images: Lazy load, WebP format
+
+### Anti-Patterns (AVOID)
+- Heavy shadows (use subtle borders instead)
+- Gradients (use solid colors)
+- Rounded corners > 12px (prefer 4px-8px)
+- Background images (use solid colors)
+- Decorations (keep it minimal)
+"#;
+
 pub struct PromptContext<'a> {
     pub workspace_dir: &'a Path,
     pub model_name: &'a str,
