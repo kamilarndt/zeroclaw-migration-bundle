@@ -108,12 +108,13 @@ export function useWebSocket(
       setMessages((prev) => {
         const updated = [...prev, { type: 'message', content } as WsMessage];
         // Implement sliding window: remove oldest message if limit exceeded
-        if (updated.length > MAX_MESSAGES) {
+        if (updated.length > 100) {
           updated.shift(); // Remove oldest message to prevent memory leak
         }
         return updated;
       });
     },
+    [getClient],
   );
 
   const clearMessages = useCallback(() => {

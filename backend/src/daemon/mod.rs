@@ -41,21 +41,9 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
     }
 
     {
-        if has_supervised_channels(&config) {
-            let channels_cfg = config.clone();
-            handles.push(spawn_component_supervisor(
-                "channels",
-                initial_backoff,
-                max_backoff,
-                move || {
-                    let cfg = channels_cfg.clone();
-                    async move { crate::channels::start_channels(cfg).await }
-                },
-            ));
-        } else {
-            crate::health::mark_component_ok("channels");
-            tracing::info!("No real-time channels configured; channel supervisor disabled");
-        }
+        // Channel supervisor disabled - channels module removed
+        crate::health::mark_component_ok("channels");
+        tracing::info!("Channel supervisor disabled");
     }
 
     if config.heartbeat.enabled {
@@ -553,15 +541,6 @@ mod tests {
     }
 
     #[test]
-    fn heartbeat_delivery_target_requires_channel_configuration() {
-        let mut config = Config::default();
-        config.heartbeat.target = Some("telegram".into());
-        config.heartbeat.to = Some("123456".into());
-        let err = heartbeat_delivery_target(&config).unwrap_err();
-        assert!(err
-            .to_string()
-            .contains("channels_config.telegram is not configured"));
-    }
 
     #[test]
     fn heartbeat_delivery_target_accepts_telegram_configuration() {

@@ -9,12 +9,22 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:e2e": "npx playwright test open_webui_config.spec.js",
+    "test:e2e:headed": "npx playwright test open_webui_config.spec.js --headed",
+    "test:e2e:debug": "npx playwright test open_webui_config.spec.js --debug",
+    "test:skills": "npx playwright test test_advanced_skills_engine.spec.js",
+    "test:skills:headed": "npx playwright test test_advanced_skills_engine.spec.js --headed",
+    "test:skills:debug": "npx playwright test test_advanced_skills_engine.spec.js --debug",
+    "config:openwebui": "node scripts/configure_open_webui.js",
+    "config:openwebui:visible": "node scripts/configure_open_webui.js --no-headless",
+    "config:openwebui:docker": "node scripts/configure_open_webui.js --api-url http://host.docker.internal:42618/v1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@playwright/test": "^1.58.2",
+    "better-sqlite3": "^11.10.0"
   }
 }

@@ -6,6 +6,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::events::get_help_text;
+
 /// Main application state
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -303,9 +305,7 @@ impl AppState {
             Some(unknown) => {
                 (format!("Unknown command: {}. Type :help for commands.", unknown), false)
             }
-            None => {
-                ("Empty command".to_string(), true)
-            }
+            None => ("Empty command".to_string(), false),
         }
     }
 
@@ -369,9 +369,6 @@ fn run_tui_diagnostic() -> String {
 
     results.join("\n")
 }
-
-/// Get help text (re-export from events module)
-pub use super::events::get_help_text;
 
 #[cfg(test)]
 mod tests {

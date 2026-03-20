@@ -199,6 +199,28 @@ impl SqliteMemory {
             super::tasks::init_tasks_table(conn)?;
         }
 
+        // Migration: add telegram_sessions table if not present (Zero-Bloat TMA)
+        let has_telegram_sessions: bool = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='telegram_sessions'")?
+            .query_row([], |row| row.get::<_, String>(0))
+            .is_ok();
+        if !has_telegram_sessions {
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS telegram_sessions (
+                    telegram_chat_id      BIGINT PRIMARY KEY,
+                    zero_claw_user_id   TEXT NOT NULL,
+                    username             TEXT,
+                    first_name           TEXT,
+                    auth_token           TEXT,
+                    last_active          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_telegram_sessions_user ON telegram_sessions(zero_claw_user_id);
+                CREATE INDEX IF NOT EXISTS idx_telegram_sessions_last_active ON telegram_sessions(last_active);",
+            )?;
+            tracing::info!("✅ Migration: created telegram_sessions table");
+        }
+
         Ok(())
     }
 

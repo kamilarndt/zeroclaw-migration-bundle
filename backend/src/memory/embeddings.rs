@@ -154,6 +154,89 @@ impl EmbeddingProvider for OpenAiEmbedding {
     }
 }
 
+// ── Ollama embedding provider ──────────────────────────────────────────────────
+
+pub struct OllamaEmbedding {
+    base_url: String,
+    model: String,
+    dims: usize,
+}
+
+impl OllamaEmbedding {
+    pub fn new(base_url: &str, model: &str, dims: usize) -> Self {
+        Self {
+            base_url: base_url.trim_end_matches('/').to_string(),
+            model: model.to_string(),
+            dims,
+        }
+    }
+
+    fn http_client(&self) -> reqwest::Client {
+        crate::config::build_runtime_proxy_client("memory.embeddings.ollama")
+    }
+
+    fn embeddings_url(&self) -> String {
+        format!("{}/api/embeddings", self.base_url)
+    }
+}
+
+#[async_trait]
+impl EmbeddingProvider for OllamaEmbedding {
+    fn name(&self) -> &str {
+        "ollama"
+    }
+
+    fn dimensions(&self) -> usize {
+        self.dims
+    }
+
+    async fn embed(&self, texts: &[&str]) -> anyhow::Result<Vec<Vec<f32>>> {
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut embeddings = Vec::with_capacity(texts.len());
+
+        // Ollama processes one text at a time via /api/embeddings
+        for text in texts {
+            let body = serde_json::json!({
+                "model": self.model,
+                "prompt": text,
+            });
+
+            let resp = self
+                .http_client()
+                .post(self.embeddings_url())
+                .header("Content-Type", "application/json")
+                .json(&body)
+                .send()
+                .await?;
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                anyhow::bail!("Ollama embedding API error {status}: {text}");
+            }
+
+            let json: serde_json::Value = resp.json().await?;
+            let embedding = json
+                .get("embedding")
+                .and_then(|e| e.as_array())
+                .ok_or_else(|| anyhow::anyhow!("Invalid Ollama embedding response: missing 'embedding'"))?;
+
+            #[allow(clippy::cast_possible_truncation)]
+            let vec: Vec<f32> = embedding
+                .iter()
+                .filter_map(|v| v.as_f64().map(|f| f as f32))
+                .collect();
+
+            embeddings.push(vec);
+        }
+
+        Ok(embeddings)
+    }
+}
+
 // ── Factory ──────────────────────────────────────────────────
 
 pub fn create_embedding_provider(
@@ -177,6 +260,14 @@ pub fn create_embedding_provider(
             Box::new(OpenAiEmbedding::new(
                 "https://openrouter.ai/api/v1",
                 key,
+                model,
+                dims,
+            ))
+        }
+        "ollama" => {
+            // Ollama uses OpenAI-compatible embeddings API at /api/embeddings
+            Box::new(OllamaEmbedding::new(
+                "http://localhost:11434",
                 model,
                 dims,
             ))

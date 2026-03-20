@@ -10,6 +10,7 @@ use axum::{
 };
 use serde::Deserialize;
 use crate::auth::jwt;
+use crate::skills::AgentSkill;
 
 const MASKED_SECRET: &str = "***MASKED***";
 
@@ -1308,66 +1309,9 @@ fn mask_sensitive_fields(config: &crate::config::Config) -> crate::config::Confi
     if let Some(discord) = masked.channels_config.discord.as_mut() {
         mask_required_secret(&mut discord.bot_token);
     }
-    if let Some(slack) = masked.channels_config.slack.as_mut() {
-        mask_required_secret(&mut slack.bot_token);
-        mask_optional_secret(&mut slack.app_token);
-    }
-    if let Some(mattermost) = masked.channels_config.mattermost.as_mut() {
-        mask_required_secret(&mut mattermost.bot_token);
-    }
-    if let Some(webhook) = masked.channels_config.webhook.as_mut() {
-        mask_optional_secret(&mut webhook.secret);
-    }
-    if let Some(matrix) = masked.channels_config.matrix.as_mut() {
-        mask_required_secret(&mut matrix.access_token);
-    }
-    if let Some(whatsapp) = masked.channels_config.whatsapp.as_mut() {
-        mask_optional_secret(&mut whatsapp.access_token);
-        mask_optional_secret(&mut whatsapp.app_secret);
-        mask_optional_secret(&mut whatsapp.verify_token);
-    }
-    if let Some(linq) = masked.channels_config.linq.as_mut() {
-        mask_required_secret(&mut linq.api_token);
-        mask_optional_secret(&mut linq.signing_secret);
-    }
-    if let Some(nextcloud) = masked.channels_config.nextcloud_talk.as_mut() {
-        mask_required_secret(&mut nextcloud.app_token);
-        mask_optional_secret(&mut nextcloud.webhook_secret);
-    }
-    if let Some(wati) = masked.channels_config.wati.as_mut() {
-        mask_required_secret(&mut wati.api_token);
-    }
-    if let Some(irc) = masked.channels_config.irc.as_mut() {
-        mask_optional_secret(&mut irc.server_password);
-        mask_optional_secret(&mut irc.nickserv_password);
-        mask_optional_secret(&mut irc.sasl_password);
-    }
-    if let Some(lark) = masked.channels_config.lark.as_mut() {
-        mask_required_secret(&mut lark.app_secret);
-        mask_optional_secret(&mut lark.encrypt_key);
-        mask_optional_secret(&mut lark.verification_token);
-    }
-    if let Some(feishu) = masked.channels_config.feishu.as_mut() {
-        mask_required_secret(&mut feishu.app_secret);
-        mask_optional_secret(&mut feishu.encrypt_key);
-        mask_optional_secret(&mut feishu.verification_token);
-    }
-    if let Some(dingtalk) = masked.channels_config.dingtalk.as_mut() {
-        mask_required_secret(&mut dingtalk.client_secret);
-    }
-    if let Some(qq) = masked.channels_config.qq.as_mut() {
-        mask_required_secret(&mut qq.app_secret);
-    }
-    if let Some(nostr) = masked.channels_config.nostr.as_mut() {
-        mask_required_secret(&mut nostr.private_key);
-    }
-    if let Some(clawdtalk) = masked.channels_config.clawdtalk.as_mut() {
-        mask_required_secret(&mut clawdtalk.api_key);
-        mask_optional_secret(&mut clawdtalk.webhook_secret);
-    }
-    if let Some(email) = masked.channels_config.email.as_mut() {
-        mask_required_secret(&mut email.password);
-    }
+    // Removed channels: slack, mattermost, webhook, matrix, whatsapp, linq, nextcloud_talk, wati,
+    // irc, lark, feishu, dingtalk, qq, nostr, clawdtalk, email, imessage, signal
+    // Stub fields are serde_json::Value and cannot be masked with struct field access
     masked
 }
 
@@ -1434,126 +1378,9 @@ fn restore_masked_sensitive_fields(
     ) {
         restore_required_secret(&mut incoming_ch.bot_token, &current_ch.bot_token);
     }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.slack.as_mut(),
-        current.channels_config.slack.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.bot_token, &current_ch.bot_token);
-        restore_optional_secret(&mut incoming_ch.app_token, &current_ch.app_token);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.mattermost.as_mut(),
-        current.channels_config.mattermost.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.bot_token, &current_ch.bot_token);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.webhook.as_mut(),
-        current.channels_config.webhook.as_ref(),
-    ) {
-        restore_optional_secret(&mut incoming_ch.secret, &current_ch.secret);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.matrix.as_mut(),
-        current.channels_config.matrix.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.access_token, &current_ch.access_token);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.whatsapp.as_mut(),
-        current.channels_config.whatsapp.as_ref(),
-    ) {
-        restore_optional_secret(&mut incoming_ch.access_token, &current_ch.access_token);
-        restore_optional_secret(&mut incoming_ch.app_secret, &current_ch.app_secret);
-        restore_optional_secret(&mut incoming_ch.verify_token, &current_ch.verify_token);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.linq.as_mut(),
-        current.channels_config.linq.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.api_token, &current_ch.api_token);
-        restore_optional_secret(&mut incoming_ch.signing_secret, &current_ch.signing_secret);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.nextcloud_talk.as_mut(),
-        current.channels_config.nextcloud_talk.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.app_token, &current_ch.app_token);
-        restore_optional_secret(&mut incoming_ch.webhook_secret, &current_ch.webhook_secret);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.wati.as_mut(),
-        current.channels_config.wati.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.api_token, &current_ch.api_token);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.irc.as_mut(),
-        current.channels_config.irc.as_ref(),
-    ) {
-        restore_optional_secret(
-            &mut incoming_ch.server_password,
-            &current_ch.server_password,
-        );
-        restore_optional_secret(
-            &mut incoming_ch.nickserv_password,
-            &current_ch.nickserv_password,
-        );
-        restore_optional_secret(&mut incoming_ch.sasl_password, &current_ch.sasl_password);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.lark.as_mut(),
-        current.channels_config.lark.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.app_secret, &current_ch.app_secret);
-        restore_optional_secret(&mut incoming_ch.encrypt_key, &current_ch.encrypt_key);
-        restore_optional_secret(
-            &mut incoming_ch.verification_token,
-            &current_ch.verification_token,
-        );
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.feishu.as_mut(),
-        current.channels_config.feishu.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.app_secret, &current_ch.app_secret);
-        restore_optional_secret(&mut incoming_ch.encrypt_key, &current_ch.encrypt_key);
-        restore_optional_secret(
-            &mut incoming_ch.verification_token,
-            &current_ch.verification_token,
-        );
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.dingtalk.as_mut(),
-        current.channels_config.dingtalk.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.client_secret, &current_ch.client_secret);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.qq.as_mut(),
-        current.channels_config.qq.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.app_secret, &current_ch.app_secret);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.nostr.as_mut(),
-        current.channels_config.nostr.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.private_key, &current_ch.private_key);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.clawdtalk.as_mut(),
-        current.channels_config.clawdtalk.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.api_key, &current_ch.api_key);
-        restore_optional_secret(&mut incoming_ch.webhook_secret, &current_ch.webhook_secret);
-    }
-    if let (Some(incoming_ch), Some(current_ch)) = (
-        incoming.channels_config.email.as_mut(),
-        current.channels_config.email.as_ref(),
-    ) {
-        restore_required_secret(&mut incoming_ch.password, &current_ch.password);
-    }
+    // Removed channels: slack, mattermost, webhook, matrix, whatsapp, linq, nextcloud_talk, wati,
+    // irc, lark, feishu, dingtalk, qq, nostr, clawdtalk, email, imessage, signal
+    // Stub fields are serde_json::Value and cannot be restored with struct field access
 }
 
 fn hydrate_config_for_save(
@@ -2341,4 +2168,168 @@ pub async fn handle_validate_config(
         "message": message,
         "check": check,
     })).into_response()
+}
+
+// ============================================================================
+// Skills Management API
+// ============================================================================
+
+/// GET /api/v1/skills - List all skills
+pub async fn handle_list_skills(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    let skills = if let Some(engine) = state.skill_engine.as_ref() {
+        engine.list_skills(true).await.unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    let response: Vec<serde_json::Value> = skills.into_iter().map(|s| {
+        serde_json::json!({
+            "id": s.id,
+            "name": s.name,
+            "description": s.description,
+            "version": s.version,
+            "author": s.author,
+            "tags": s.tags,
+            "is_active": s.is_active,
+            "created_at": s.created_at,
+        })
+    }).collect();
+
+    Json(serde_json::json!({
+        "skills": response,
+        "count": response.len()
+    })).into_response()
+}
+
+/// POST /api/v1/skills - Create a new skill
+#[axum::debug_handler]
+pub async fn handle_create_skill(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(skill): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    let engine = match &state.skill_engine {
+        Some(e) => e,
+        None => {
+            return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "error": "Skills engine not available"
+            }))).into_response();
+        }
+    };
+
+    let name = skill.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    let description = skill.get("description").and_then(|v| v.as_str()).unwrap_or("");
+    let content = skill.get("content").and_then(|v| v.as_str()).unwrap_or("");
+    let version = skill.get("version").and_then(|v| v.as_str()).unwrap_or("1.0.0");
+    let author = skill.get("author").and_then(|v| v.as_str()).map(String::from);
+    let tags: Vec<String> = skill.get("tags")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
+    if name.is_empty() || description.is_empty() || content.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": "name, description, and content are required"
+        }))).into_response();
+    }
+
+    let new_skill = AgentSkill {
+        id: None,
+        name: name.to_string(),
+        description: description.to_string(),
+        content: content.to_string(),
+        version: version.to_string(),
+        author,
+        tags,
+        is_active: true,
+        tools: Vec::new(),
+        prompts: Vec::new(),
+        location: None,
+        created_at: None,
+        updated_at: None,
+    };
+
+    match engine.store_skill(&new_skill).await {
+        Ok(id) => (StatusCode::CREATED, Json(serde_json::json!({
+            "id": id,
+            "message": "AgentSkill created successfully"
+        }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "error": format!("Failed to create skill: {}", e)
+        }))).into_response(),
+    }
+}
+
+/// GET /api/v1/skills/:id - Get a skill by ID
+pub async fn handle_get_skill(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    let engine = match &state.skill_engine {
+        Some(e) => e,
+        None => {
+            return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "error": "Skills engine not available"
+            }))).into_response();
+        }
+    };
+
+    match engine.get_skill(id).await {
+        Ok(Some(skill)) => Json(serde_json::json!(skill)).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "error": "AgentSkill not found"
+        }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "error": format!("{}", e)
+        }))).into_response(),
+    }
+}
+
+/// DELETE /api/v1/skills/:id - Delete a skill
+#[axum::debug_handler]
+pub async fn handle_delete_skill(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    let engine = match &state.skill_engine {
+        Some(e) => e,
+        None => {
+            return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "error": "Skills engine not available"
+            }))).into_response();
+        }
+    };
+
+    match engine.delete_skill(id).await {
+        Ok(true) => (StatusCode::OK, Json(serde_json::json!({
+            "message": "AgentSkill deleted successfully"
+        }))).into_response(),
+        Ok(false) => (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "error": "AgentSkill not found"
+        }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "error": format!("{}", e)
+        }))).into_response(),
+    }
 }

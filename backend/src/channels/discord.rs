@@ -486,7 +486,7 @@ impl Channel for DiscordChannel {
     }
 
     async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
-        let raw_content = super::strip_tool_call_tags(&message.content);
+        let raw_content = crate::channels::telegram::strip_tool_call_tags(&message.content);
         let (cleaned_content, parsed_attachments) = parse_attachment_markers(&raw_content);
         let (mut local_files, remote_urls, unresolved_markers) =
             classify_outgoing_attachments(&parsed_attachments);
@@ -771,6 +771,7 @@ impl Channel for DiscordChannel {
                             .unwrap_or_default()
                             .as_secs(),
                         thread_ts: None,
+                        active_skills: vec![],
                     };
 
                     if tx.send(channel_msg).await.is_err() {

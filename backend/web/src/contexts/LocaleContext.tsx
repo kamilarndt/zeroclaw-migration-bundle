@@ -1,5 +1,4 @@
 import { createContext, useContext } from 'react';
-import { setLocale, type Locale } from '../lib/i18n';
 
 interface LocaleContextType {
   locale: string;

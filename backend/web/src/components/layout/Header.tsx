@@ -1,7 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { LogOut, PanelRightOpen } from 'lucide-react';
 import { t } from '@/lib/i18n';
-import { useLocaleContext } from '@/App';
+import { useLocaleContext } from '@/contexts';
 import { useAuth } from '@/hooks/useAuth';
 
 const routeTitles: Record<string, string> = {

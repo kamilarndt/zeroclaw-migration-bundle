@@ -1825,6 +1825,7 @@ pub(crate) async fn agent_turn(
         None,
         None,
         &[],
+        None,
     )
     .await
 }
@@ -1861,12 +1862,30 @@ pub async fn run_tool_call_loop(
     on_delta: Option<tokio::sync::mpsc::Sender<String>>,
     hooks: Option<&crate::hooks::HookRunner>,
     excluded_tools: &[String],
+    thread_skills: Option<&[crate::skills::Skill]>,
 ) -> Result<String> {
     let max_iterations = if max_tool_iterations == 0 {
         DEFAULT_MAX_TOOL_ITERATIONS
     } else {
         max_tool_iterations
     };
+
+    // Inject thread-specific skills into the system prompt if provided
+    if let Some(skills) = thread_skills {
+        if !skills.is_empty() {
+            // Append thread skills to the existing system prompt (first message in history)
+            if let Some(system_msg) = history.first_mut() {
+                let skills_prompt = crate::skills::skills_to_prompt_with_mode(
+                    skills,
+                    &std::path::Path::new("."), // Workspace dir not available here, skills should have absolute paths
+                    crate::config::SkillsPromptInjectionMode::Full,
+                );
+                if !skills_prompt.is_empty() {
+                    system_msg.content = format!("{}\n\n{}", system_msg.content, skills_prompt);
+                }
+            }
+        }
+    }
 
     let tool_specs: Vec<crate::tools::ToolSpec> = tools_registry
         .iter()
@@ -2563,8 +2582,9 @@ pub async fn run(
         &config,
     );
 
-    let peripheral_tools: Vec<Box<dyn Tool>> =
-        crate::peripherals::create_peripheral_tools(&config.peripherals).await?;
+    // Peripheral tools disabled - peripherals module removed
+    let peripheral_tools: Vec<Box<dyn Tool>> = vec![];
+    // crate::peripherals::create_peripheral_tools(&config.peripherals).await?;
     if !peripheral_tools.is_empty() {
         tracing::info!(count = peripheral_tools.len(), "Peripheral tools added");
         tools_registry.extend(peripheral_tools);
@@ -2612,7 +2632,7 @@ pub async fn run(
         .filter(|d| !d.trim().is_empty())
         .map(|dir| crate::rag::HardwareRag::load(&config.workspace_dir, dir.trim()))
         .and_then(Result::ok)
-        .filter(|r: &crate::rag::HardwareRag| !r.is_empty());
+        .filter(|r| !r.is_empty());
     if let Some(ref rag) = hardware_rag {
         tracing::info!(chunks = rag.len(), "Hardware RAG loaded");
     }
@@ -2740,15 +2760,11 @@ pub async fn run(
         None
     };
     let native_tools = provider.supports_native_tools();
-    let mut system_prompt = crate::channels::build_system_prompt_with_mode(
-        &config.workspace_dir,
-        model_name,
-        &tool_descs,
-        &skills,
-        Some(&config.identity),
-        bootstrap_max_chars,
-        native_tools,
-        config.skills.prompt_injection_mode,
+    // Build system prompt - channels deleted, using simple prompt
+    let mut system_prompt = format!(
+        "You are ZeroClaw, an AI agent. Workspace: {}. Model: {}",
+        config.workspace_dir.display(),
+        model_name
     );
 
     // Append structured tool-use instructions with schemas (only for non-native providers)
@@ -2816,6 +2832,7 @@ pub async fn run(
             None,
             None,
             &[],
+            None,
         )
         .await?;
         final_output = response.clone();
@@ -2938,6 +2955,7 @@ pub async fn run(
                 None,
                 None,
                 &[],
+                None,
             )
             .await
             {
@@ -3031,8 +3049,9 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
         config.api_key.as_deref(),
         &config,
     );
-    let peripheral_tools: Vec<Box<dyn Tool>> =
-        crate::peripherals::create_peripheral_tools(&config.peripherals).await?;
+    // Peripheral tools disabled - peripherals module removed
+    let peripheral_tools: Vec<Box<dyn Tool>> = vec![];
+    // crate::peripherals::create_peripheral_tools(&config.peripherals).await?;
     tools_registry.extend(peripheral_tools);
 
     let provider_name = config.default_provider.as_deref().unwrap_or("openrouter");
@@ -3064,7 +3083,7 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
         .filter(|d| !d.trim().is_empty())
         .map(|dir| crate::rag::HardwareRag::load(&config.workspace_dir, dir.trim()))
         .and_then(Result::ok)
-        .filter(|r: &crate::rag::HardwareRag| !r.is_empty());
+        .filter(|r| !r.is_empty());
     let board_names: Vec<String> = config
         .peripherals
         .boards
@@ -3126,15 +3145,11 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
         None
     };
     let native_tools = provider.supports_native_tools();
-    let mut system_prompt = crate::channels::build_system_prompt_with_mode(
-        &config.workspace_dir,
-        &model_name,
-        &tool_descs,
-        &skills,
-        Some(&config.identity),
-        bootstrap_max_chars,
-        native_tools,
-        config.skills.prompt_injection_mode,
+    // Build system prompt - channels deleted, using simple prompt
+    let mut system_prompt = format!(
+        "You are ZeroClaw, an AI agent. Workspace: {}. Model: {}",
+        config.workspace_dir.display(),
+        model_name
     );
     if !native_tools {
         system_prompt.push_str(&build_tool_instructions(&tools_registry));
@@ -3483,6 +3498,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect_err("provider without vision support should fail");
@@ -3529,6 +3545,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect_err("oversized payload must fail");
@@ -3569,6 +3586,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("valid multimodal payload should pass");
@@ -3695,6 +3713,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("parallel execution should complete");
@@ -3764,6 +3783,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("loop should finish after deduplicating repeated calls");
@@ -3820,6 +3840,7 @@ mod tests {
             None,
             None,
             &[],
+            None,
         )
         .await
         .expect("native fallback id flow should complete");
@@ -5091,59 +5112,6 @@ Let me check the result."#;
     /// When `build_system_prompt_with_mode` is called with `native_tools = true`,
     /// the output must contain ZERO XML protocol artifacts. In the native path
     /// `build_tool_instructions` is never called, so the system prompt alone
-    /// must be clean of XML tool-call protocol.
-    #[test]
-    fn native_tools_system_prompt_contains_zero_xml() {
-        use crate::channels::build_system_prompt_with_mode;
-
-        let tool_summaries: Vec<(&str, &str)> = vec![
-            ("shell", "Execute shell commands"),
-            ("file_read", "Read files"),
-        ];
-
-        let system_prompt = build_system_prompt_with_mode(
-            std::path::Path::new("/tmp"),
-            "test-model",
-            &tool_summaries,
-            &[],  // no skills
-            None, // no identity config
-            None, // no bootstrap_max_chars
-            true, // native_tools
-            crate::config::SkillsPromptInjectionMode::Full,
-        );
-
-        // Must contain zero XML protocol artifacts
-        assert!(
-            !system_prompt.contains("<tool_call>"),
-            "Native prompt must not contain <tool_call>"
-        );
-        assert!(
-            !system_prompt.contains("</tool_call>"),
-            "Native prompt must not contain </tool_call>"
-        );
-        assert!(
-            !system_prompt.contains("<tool_result>"),
-            "Native prompt must not contain <tool_result>"
-        );
-        assert!(
-            !system_prompt.contains("</tool_result>"),
-            "Native prompt must not contain </tool_result>"
-        );
-        assert!(
-            !system_prompt.contains("## Tool Use Protocol"),
-            "Native prompt must not contain XML protocol header"
-        );
-
-        // Positive: native prompt should still list tools and contain task instructions
-        assert!(
-            system_prompt.contains("shell"),
-            "Native prompt must list tool names"
-        );
-        assert!(
-            system_prompt.contains("## Your Task"),
-            "Native prompt should contain task instructions"
-        );
-    }
 
     // ── Cross-Alias & GLM Shortened Body Tests ──────────────────────────
 

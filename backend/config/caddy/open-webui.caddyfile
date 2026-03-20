@@ -1,0 +1,34 @@
+# Open WebUI Caddy Configuration
+# For dash.karndt.pl integration
+#
+# Add this to your Caddyfile:
+#
+# dash.karndt.pl {
+#     # Open WebUI at /webui path
+#     handle_path /webui* {
+#         reverse_proxy 127.0.0.1:3001
+#     }
+#
+#     # Or as subdomain (alternative):
+#     # webui.dash.karndt.pl {
+#     #     reverse_proxy 127.0.0.1:3001
+#     # }
+# }
+#
+# Usage:
+# 1. Copy this config to your Caddyfile
+# 2. Reload Caddy: systemctl reload caddy
+# 3. Access at: https://dash.karndt.pl/webui
+
+# Alternative: Standalone subdomain
+# webui.karndt.pl {
+#     reverse_proxy 127.0.0.1:3001
+#     encode gzip
+#
+#     # Security headers
+#     header {
+#         X-Content-Type-Options nosniff
+#         X-Frame-Options DENY
+#         X-XSS-Protection "1; mode=block"
+#     }
+# }

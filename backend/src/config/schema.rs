@@ -37,19 +37,6 @@ const SUPPORTED_PROXY_SERVICE_KEYS: &[&str] = &[
     "provider.ollama",
     "provider.openai",
     "provider.openrouter",
-    "channel.dingtalk",
-    "channel.discord",
-    "channel.feishu",
-    "channel.lark",
-    "channel.matrix",
-    "channel.mattermost",
-    "channel.nextcloud_talk",
-    "channel.qq",
-    "channel.signal",
-    "channel.slack",
-    "channel.telegram",
-    "channel.wati",
-    "channel.whatsapp",
     "tool.browser",
     "tool.composio",
     "tool.http_request",
@@ -2078,7 +2065,7 @@ pub struct HeartbeatConfig {
     /// Optional fallback task text when `HEARTBEAT.md` has no task entries.
     #[serde(default)]
     pub message: Option<String>,
-    /// Optional delivery channel for heartbeat output (for example: `telegram`).
+    /// Optional delivery channel for heartbeat output (currently not used).
     #[serde(default, alias = "channel")]
     pub target: Option<String>,
     /// Optional delivery recipient/chat identifier (required when `target` is set).
@@ -2218,8 +2205,7 @@ impl<T: ChannelConfig> crate::config::traits::ConfigHandle for ConfigWrapper<T> 
 
 /// Top-level channel configurations (`[channels_config]` section).
 ///
-/// Each channel sub-section (e.g. `telegram`, `discord`) is optional;
-/// setting it to `Some(...)` enables that channel.
+/// Only CLI channel is supported.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChannelsConfig {
     /// Enable the CLI interactive channel. Default: `true`.
@@ -2228,41 +2214,6 @@ pub struct ChannelsConfig {
     pub telegram: Option<TelegramConfig>,
     /// Discord bot channel configuration.
     pub discord: Option<DiscordConfig>,
-    /// Slack bot channel configuration.
-    pub slack: Option<SlackConfig>,
-    /// Mattermost bot channel configuration.
-    pub mattermost: Option<MattermostConfig>,
-    /// Webhook channel configuration.
-    pub webhook: Option<WebhookConfig>,
-    /// iMessage channel configuration (macOS only).
-    pub imessage: Option<IMessageConfig>,
-    /// Matrix channel configuration.
-    pub matrix: Option<MatrixConfig>,
-    /// Signal channel configuration.
-    pub signal: Option<SignalConfig>,
-    /// WhatsApp channel configuration (Cloud API or Web mode).
-    pub whatsapp: Option<WhatsAppConfig>,
-    /// Linq Partner API channel configuration.
-    pub linq: Option<LinqConfig>,
-    /// WATI WhatsApp Business API channel configuration.
-    pub wati: Option<WatiConfig>,
-    /// Nextcloud Talk bot channel configuration.
-    pub nextcloud_talk: Option<NextcloudTalkConfig>,
-    /// Email channel configuration.
-    pub email: Option<crate::channels::email_channel::EmailConfig>,
-    /// IRC channel configuration.
-    pub irc: Option<IrcConfig>,
-    /// Lark channel configuration.
-    pub lark: Option<LarkConfig>,
-    /// Feishu channel configuration.
-    pub feishu: Option<FeishuConfig>,
-    /// DingTalk channel configuration.
-    pub dingtalk: Option<DingTalkConfig>,
-    /// QQ Official Bot channel configuration.
-    pub qq: Option<QQConfig>,
-    pub nostr: Option<NostrConfig>,
-    /// ClawdTalk voice channel configuration.
-    pub clawdtalk: Option<crate::channels::clawdtalk::ClawdTalkConfig>,
     /// Base timeout in seconds for processing a single channel message (LLM + tools).
     /// Runtime uses this as a per-turn budget that scales with tool-loop depth
     /// (up to 4x, capped) so one slow/retried model call does not consume the
@@ -2270,148 +2221,60 @@ pub struct ChannelsConfig {
     /// Default: 300s for on-device LLMs (Ollama) which are slower than cloud APIs.
     #[serde(default = "default_channel_message_timeout_secs")]
     pub message_timeout_secs: u64,
+
+    // Stub fields for removed channels (keep for backward compatibility with existing configs)
+    #[serde(default)]
+    pub slack: Option<serde_json::Value>,
+    #[serde(default)]
+    pub webhook: Option<serde_json::Value>,
+    #[serde(default)]
+    pub mattermost: Option<serde_json::Value>,
+    #[serde(default)]
+    pub whatsapp: Option<serde_json::Value>,
+    #[serde(default)]
+    pub qq: Option<serde_json::Value>,
+    #[serde(default)]
+    pub matrix: Option<serde_json::Value>,
+    #[serde(default)]
+    pub email: Option<serde_json::Value>,
+    #[serde(default)]
+    pub dingtalk: Option<serde_json::Value>,
+    #[serde(default)]
+    pub wati: Option<serde_json::Value>,
+    #[serde(default)]
+    pub nostr: Option<serde_json::Value>,
+    #[serde(default)]
+    pub nextcloud_talk: Option<serde_json::Value>,
+    #[serde(default)]
+    pub linq: Option<serde_json::Value>,
+    #[serde(default)]
+    pub lark: Option<serde_json::Value>,
+    #[serde(default)]
+    pub irc: Option<serde_json::Value>,
+    #[serde(default)]
+    pub feishu: Option<serde_json::Value>,
+    #[serde(default)]
+    pub clawdtalk: Option<serde_json::Value>,
+    #[serde(default)]
+    pub imessage: Option<serde_json::Value>,
+    #[serde(default)]
+    pub signal: Option<serde_json::Value>,
 }
 
-impl ChannelsConfig {
-    /// get channels' metadata and `.is_some()`, except webhook
-    #[rustfmt::skip]
-    pub fn channels_except_webhook(&self) -> Vec<(Box<dyn super::traits::ConfigHandle>, bool)> {
-        vec![
-            (
-                Box::new(ConfigWrapper::new(&self.telegram)),
-                self.telegram.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.discord)),
-                self.discord.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.slack)),
-                self.slack.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.mattermost)),
-                self.mattermost.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.imessage)),
-                self.imessage.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.matrix)),
-                self.matrix.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.signal)),
-                self.signal.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.whatsapp)),
-                self.whatsapp.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.linq)),
-                self.linq.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.wati)),
-                self.wati.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.nextcloud_talk)),
-                self.nextcloud_talk.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.email)),
-                self.email.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.irc)),
-                self.irc.is_some()
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.lark)),
-                self.lark.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.feishu)),
-                self.feishu.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.dingtalk)),
-                self.dingtalk.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.qq)),
-                self.qq.is_some()
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.nostr)),
-                self.nostr.is_some(),
-            ),
-            (
-                Box::new(ConfigWrapper::new(&self.clawdtalk)),
-                self.clawdtalk.is_some(),
-            ),
-        ]
-    }
-
-    pub fn channels(&self) -> Vec<(Box<dyn super::traits::ConfigHandle>, bool)> {
-        let mut ret = self.channels_except_webhook();
-        ret.push((
-            Box::new(ConfigWrapper::new(&self.webhook)),
-            self.webhook.is_some(),
-        ));
-        ret
-    }
-}
-
-fn default_channel_message_timeout_secs() -> u64 {
-    300
-}
-
-impl Default for ChannelsConfig {
-    fn default() -> Self {
-        Self {
-            cli: true,
-            telegram: None,
-            discord: None,
-            slack: None,
-            mattermost: None,
-            webhook: None,
-            imessage: None,
-            matrix: None,
-            signal: None,
-            whatsapp: None,
-            linq: None,
-            wati: None,
-            nextcloud_talk: None,
-            email: None,
-            irc: None,
-            lark: None,
-            feishu: None,
-            dingtalk: None,
-            qq: None,
-            nostr: None,
-            clawdtalk: None,
-            message_timeout_secs: default_channel_message_timeout_secs(),
-        }
-    }
-}
-
-/// Streaming mode for channels that support progressive message updates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+/// Streaming mode for progressive response delivery.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum StreamMode {
-    /// No streaming -- send the complete response as a single message (default).
-    #[default]
+    /// Send complete responses only.
     Off,
-    /// Update a draft message with every flush interval.
-    Partial,
+    /// Stream responses via message edits.
+    On,
 }
 
-fn default_draft_update_interval_ms() -> u64 {
-    1000
+impl Default for StreamMode {
+    fn default() -> Self {
+        Self::On
+    }
 }
 
 /// Telegram bot channel configuration.
@@ -2446,6 +2309,10 @@ impl ChannelConfig for TelegramConfig {
     }
 }
 
+fn default_draft_update_interval_ms() -> u64 {
+    1500
+}
+
 /// Discord bot channel configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DiscordConfig {
@@ -2475,520 +2342,69 @@ impl ChannelConfig for DiscordConfig {
     }
 }
 
-/// Slack bot channel configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SlackConfig {
-    /// Slack bot OAuth token (xoxb-...).
-    pub bot_token: String,
-    /// Slack app-level token for Socket Mode (xapp-...).
-    pub app_token: Option<String>,
-    /// Optional channel ID to restrict the bot to a single channel.
-    /// Omit (or set `"*"`) to listen across all accessible channels.
-    pub channel_id: Option<String>,
-    /// Allowed Slack user IDs. Empty = deny all.
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-}
-
-impl ChannelConfig for SlackConfig {
-    fn name() -> &'static str {
-        "Slack"
+impl ChannelsConfig {
+    /// get channels' metadata and `.is_some()`, except webhook
+    pub fn channels_except_webhook(&self) -> Vec<(Box<dyn super::traits::ConfigHandle>, bool)> {
+        vec![
+            (
+                Box::new(ConfigWrapper::<TelegramConfig>::new(&self.telegram)),
+                self.telegram.is_some(),
+            ),
+            (
+                Box::new(ConfigWrapper::<DiscordConfig>::new(&self.discord)),
+                self.discord.is_some(),
+            ),
+        ]
     }
-    fn desc() -> &'static str {
-        "connect your bot"
-    }
-}
 
-/// Mattermost bot channel configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct MattermostConfig {
-    /// Mattermost server URL (e.g. `"https://mattermost.example.com"`).
-    pub url: String,
-    /// Mattermost bot access token.
-    pub bot_token: String,
-    /// Optional channel ID to restrict the bot to a single channel.
-    pub channel_id: Option<String>,
-    /// Allowed Mattermost user IDs. Empty = deny all.
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-    /// When true (default), replies thread on the original post.
-    /// When false, replies go to the channel root.
-    #[serde(default)]
-    pub thread_replies: Option<bool>,
-    /// When true, only respond to messages that @-mention the bot.
-    /// Other messages in the channel are silently ignored.
-    #[serde(default)]
-    pub mention_only: Option<bool>,
-}
-
-impl ChannelConfig for MattermostConfig {
-    fn name() -> &'static str {
-        "Mattermost"
-    }
-    fn desc() -> &'static str {
-        "connect to your bot"
+    pub fn channels(&self) -> Vec<(Box<dyn super::traits::ConfigHandle>, bool)> {
+        vec![
+            (
+                Box::new(ConfigWrapper::<TelegramConfig>::new(&self.telegram)),
+                self.telegram.is_some(),
+            ),
+            (
+                Box::new(ConfigWrapper::<DiscordConfig>::new(&self.discord)),
+                self.discord.is_some(),
+            ),
+        ]
     }
 }
 
-/// Webhook channel configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct WebhookConfig {
-    /// Port to listen on for incoming webhooks.
-    pub port: u16,
-    /// Optional shared secret for webhook signature verification.
-    pub secret: Option<String>,
+fn default_channel_message_timeout_secs() -> u64 {
+    300
 }
 
-impl ChannelConfig for WebhookConfig {
-    fn name() -> &'static str {
-        "Webhook"
-    }
-    fn desc() -> &'static str {
-        "HTTP endpoint"
-    }
-}
-
-/// iMessage channel configuration (macOS only).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct IMessageConfig {
-    /// Allowed iMessage contacts (phone numbers or email addresses). Empty = deny all.
-    pub allowed_contacts: Vec<String>,
-}
-
-impl ChannelConfig for IMessageConfig {
-    fn name() -> &'static str {
-        "iMessage"
-    }
-    fn desc() -> &'static str {
-        "macOS only"
-    }
-}
-
-/// Matrix channel configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct MatrixConfig {
-    /// Matrix homeserver URL (e.g. `"https://matrix.org"`).
-    pub homeserver: String,
-    /// Matrix access token for the bot account.
-    pub access_token: String,
-    /// Optional Matrix user ID (e.g. `"@bot:matrix.org"`).
-    #[serde(default)]
-    pub user_id: Option<String>,
-    /// Optional Matrix device ID.
-    #[serde(default)]
-    pub device_id: Option<String>,
-    /// Matrix room ID to listen in (e.g. `"!abc123:matrix.org"`).
-    pub room_id: String,
-    /// Allowed Matrix user IDs. Empty = deny all.
-    pub allowed_users: Vec<String>,
-}
-
-impl ChannelConfig for MatrixConfig {
-    fn name() -> &'static str {
-        "Matrix"
-    }
-    fn desc() -> &'static str {
-        "self-hosted chat"
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SignalConfig {
-    /// Base URL for the signal-cli HTTP daemon (e.g. "http://127.0.0.1:8686").
-    pub http_url: String,
-    /// E.164 phone number of the signal-cli account (e.g. "+1234567890").
-    pub account: String,
-    /// Optional group ID to filter messages.
-    /// - `None` or omitted: accept all messages (DMs and groups)
-    /// - `"dm"`: only accept direct messages
-    /// - Specific group ID: only accept messages from that group
-    #[serde(default)]
-    pub group_id: Option<String>,
-    /// Allowed sender phone numbers (E.164) or "*" for all.
-    #[serde(default)]
-    pub allowed_from: Vec<String>,
-    /// Skip messages that are attachment-only (no text body).
-    #[serde(default)]
-    pub ignore_attachments: bool,
-    /// Skip incoming story messages.
-    #[serde(default)]
-    pub ignore_stories: bool,
-}
-
-impl ChannelConfig for SignalConfig {
-    fn name() -> &'static str {
-        "Signal"
-    }
-    fn desc() -> &'static str {
-        "An open-source, encrypted messaging service"
-    }
-}
-
-/// WhatsApp channel configuration (Cloud API or Web mode).
-///
-/// Set `phone_number_id` for Cloud API mode, or `session_path` for Web mode.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct WhatsAppConfig {
-    /// Access token from Meta Business Suite (Cloud API mode)
-    #[serde(default)]
-    pub access_token: Option<String>,
-    /// Phone number ID from Meta Business API (Cloud API mode)
-    #[serde(default)]
-    pub phone_number_id: Option<String>,
-    /// Webhook verify token (you define this, Meta sends it back for verification)
-    /// Only used in Cloud API mode
-    #[serde(default)]
-    pub verify_token: Option<String>,
-    /// App secret from Meta Business Suite (for webhook signature verification)
-    /// Can also be set via `ZEROCLAW_WHATSAPP_APP_SECRET` environment variable
-    /// Only used in Cloud API mode
-    #[serde(default)]
-    pub app_secret: Option<String>,
-    /// Session database path for WhatsApp Web client (Web mode)
-    /// When set, enables native WhatsApp Web mode with wa-rs
-    #[serde(default)]
-    pub session_path: Option<String>,
-    /// Phone number for pair code linking (Web mode, optional)
-    /// Format: country code + number (e.g., "15551234567")
-    /// If not set, QR code pairing will be used
-    #[serde(default)]
-    pub pair_phone: Option<String>,
-    /// Custom pair code for linking (Web mode, optional)
-    /// Leave empty to let WhatsApp generate one
-    #[serde(default)]
-    pub pair_code: Option<String>,
-    /// Allowed phone numbers (E.164 format: +1234567890) or "*" for all
-    #[serde(default)]
-    pub allowed_numbers: Vec<String>,
-}
-
-impl ChannelConfig for WhatsAppConfig {
-    fn name() -> &'static str {
-        "WhatsApp"
-    }
-    fn desc() -> &'static str {
-        "Business Cloud API"
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct LinqConfig {
-    /// Linq Partner API token (Bearer auth)
-    pub api_token: String,
-    /// Phone number to send from (E.164 format)
-    pub from_phone: String,
-    /// Webhook signing secret for signature verification
-    #[serde(default)]
-    pub signing_secret: Option<String>,
-    /// Allowed sender handles (phone numbers) or "*" for all
-    #[serde(default)]
-    pub allowed_senders: Vec<String>,
-}
-
-impl ChannelConfig for LinqConfig {
-    fn name() -> &'static str {
-        "Linq"
-    }
-    fn desc() -> &'static str {
-        "iMessage/RCS/SMS via Linq API"
-    }
-}
-
-/// WATI WhatsApp Business API channel configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct WatiConfig {
-    /// WATI API token (Bearer auth).
-    pub api_token: String,
-    /// WATI API base URL (default: https://live-mt-server.wati.io).
-    #[serde(default = "default_wati_api_url")]
-    pub api_url: String,
-    /// Tenant ID for multi-channel setups (optional).
-    #[serde(default)]
-    pub tenant_id: Option<String>,
-    /// Allowed phone numbers (E.164 format) or "*" for all.
-    #[serde(default)]
-    pub allowed_numbers: Vec<String>,
-}
-
-fn default_wati_api_url() -> String {
-    "https://live-mt-server.wati.io".to_string()
-}
-
-impl ChannelConfig for WatiConfig {
-    fn name() -> &'static str {
-        "WATI"
-    }
-    fn desc() -> &'static str {
-        "WhatsApp via WATI Business API"
-    }
-}
-
-/// Nextcloud Talk bot configuration (webhook receive + OCS send API).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct NextcloudTalkConfig {
-    /// Nextcloud base URL (e.g. "https://cloud.example.com").
-    pub base_url: String,
-    /// Bot app token used for OCS API bearer auth.
-    pub app_token: String,
-    /// Shared secret for webhook signature verification.
-    ///
-    /// Can also be set via `ZEROCLAW_NEXTCLOUD_TALK_WEBHOOK_SECRET`.
-    #[serde(default)]
-    pub webhook_secret: Option<String>,
-    /// Allowed Nextcloud actor IDs (`[]` = deny all, `"*"` = allow all).
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-}
-
-impl ChannelConfig for NextcloudTalkConfig {
-    fn name() -> &'static str {
-        "NextCloud Talk"
-    }
-    fn desc() -> &'static str {
-        "NextCloud Talk platform"
-    }
-}
-
-impl WhatsAppConfig {
-    /// Detect which backend to use based on config fields.
-    /// Returns "cloud" if phone_number_id is set, "web" if session_path is set.
-    pub fn backend_type(&self) -> &'static str {
-        if self.phone_number_id.is_some() {
-            "cloud"
-        } else if self.session_path.is_some() {
-            "web"
-        } else {
-            // Default to Cloud API for backward compatibility
-            "cloud"
+impl Default for ChannelsConfig {
+    fn default() -> Self {
+        Self {
+            cli: true,
+            telegram: None,
+            discord: None,
+            message_timeout_secs: default_channel_message_timeout_secs(),
+            // Stub fields for removed channels
+            slack: None,
+            webhook: None,
+            mattermost: None,
+            whatsapp: None,
+            qq: None,
+            matrix: None,
+            email: None,
+            dingtalk: None,
+            wati: None,
+            nostr: None,
+            nextcloud_talk: None,
+            linq: None,
+            lark: None,
+            irc: None,
+            feishu: None,
+            clawdtalk: None,
+            imessage: None,
+            signal: None,
         }
     }
-
-    /// Check if this is a valid Cloud API config
-    pub fn is_cloud_config(&self) -> bool {
-        self.phone_number_id.is_some() && self.access_token.is_some() && self.verify_token.is_some()
-    }
-
-    /// Check if this is a valid Web config
-    pub fn is_web_config(&self) -> bool {
-        self.session_path.is_some()
-    }
-
-    /// Returns true when both Cloud and Web selectors are present.
-    ///
-    /// Runtime currently prefers Cloud mode in this case for backward compatibility.
-    pub fn is_ambiguous_config(&self) -> bool {
-        self.phone_number_id.is_some() && self.session_path.is_some()
-    }
 }
 
-/// IRC channel configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct IrcConfig {
-    /// IRC server hostname
-    pub server: String,
-    /// IRC server port (default: 6697 for TLS)
-    #[serde(default = "default_irc_port")]
-    pub port: u16,
-    /// Bot nickname
-    pub nickname: String,
-    /// Username (defaults to nickname if not set)
-    pub username: Option<String>,
-    /// Channels to join on connect
-    #[serde(default)]
-    pub channels: Vec<String>,
-    /// Allowed nicknames (case-insensitive) or "*" for all
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-    /// Server password (for bouncers like ZNC)
-    pub server_password: Option<String>,
-    /// NickServ IDENTIFY password
-    pub nickserv_password: Option<String>,
-    /// SASL PLAIN password (IRCv3)
-    pub sasl_password: Option<String>,
-    /// Verify TLS certificate (default: true)
-    pub verify_tls: Option<bool>,
-}
-
-impl ChannelConfig for IrcConfig {
-    fn name() -> &'static str {
-        "IRC"
-    }
-    fn desc() -> &'static str {
-        "IRC over TLS"
-    }
-}
-
-fn default_irc_port() -> u16 {
-    6697
-}
-
-/// How ZeroClaw receives events from Feishu / Lark.
-///
-/// - `websocket` (default) — persistent WSS long-connection; no public URL required.
-/// - `webhook`             — HTTP callback server; requires a public HTTPS endpoint.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum LarkReceiveMode {
-    #[default]
-    Websocket,
-    Webhook,
-}
-
-/// Lark/Feishu configuration for messaging integration.
-/// Lark is the international version; Feishu is the Chinese version.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct LarkConfig {
-    /// App ID from Lark/Feishu developer console
-    pub app_id: String,
-    /// App Secret from Lark/Feishu developer console
-    pub app_secret: String,
-    /// Encrypt key for webhook message decryption (optional)
-    #[serde(default)]
-    pub encrypt_key: Option<String>,
-    /// Verification token for webhook validation (optional)
-    #[serde(default)]
-    pub verification_token: Option<String>,
-    /// Allowed user IDs or union IDs (empty = deny all, "*" = allow all)
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-    /// When true, only respond to messages that @-mention the bot in groups.
-    /// Direct messages are always processed.
-    #[serde(default)]
-    pub mention_only: bool,
-    /// Whether to use the Feishu (Chinese) endpoint instead of Lark (International)
-    #[serde(default)]
-    pub use_feishu: bool,
-    /// Event receive mode: "websocket" (default) or "webhook"
-    #[serde(default)]
-    pub receive_mode: LarkReceiveMode,
-    /// HTTP port for webhook mode only. Must be set when receive_mode = "webhook".
-    /// Not required (and ignored) for websocket mode.
-    #[serde(default)]
-    pub port: Option<u16>,
-}
-
-impl ChannelConfig for LarkConfig {
-    fn name() -> &'static str {
-        "Lark"
-    }
-    fn desc() -> &'static str {
-        "Lark Bot"
-    }
-}
-
-/// Feishu configuration for messaging integration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct FeishuConfig {
-    /// App ID from Feishu developer console
-    pub app_id: String,
-    /// App Secret from Feishu developer console
-    pub app_secret: String,
-    /// Encrypt key for webhook message decryption (optional)
-    #[serde(default)]
-    pub encrypt_key: Option<String>,
-    /// Verification token for webhook validation (optional)
-    #[serde(default)]
-    pub verification_token: Option<String>,
-    /// Allowed user IDs or union IDs (empty = deny all, "*" = allow all)
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-    /// Event receive mode: "websocket" (default) or "webhook"
-    #[serde(default)]
-    pub receive_mode: LarkReceiveMode,
-    /// HTTP port for webhook mode only. Must be set when receive_mode = "webhook".
-    /// Not required (and ignored) for websocket mode.
-    #[serde(default)]
-    pub port: Option<u16>,
-}
-
-impl ChannelConfig for FeishuConfig {
-    fn name() -> &'static str {
-        "Feishu"
-    }
-    fn desc() -> &'static str {
-        "Feishu Bot"
-    }
-}
-
-// ── Security Config ─────────────────────────────────────────────────
-// Security types are now in security_schema.rs
-// use crate::config::schemas::security_schema::{
-//     SecurityConfig, OtpConfig, OtpMethod, EstopConfig,
-//     SandboxConfig, SandboxBackend, ResourceLimitsConfig, AuditConfig,
-// };
-
-/// DingTalk configuration for Stream Mode messaging
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct DingTalkConfig {
-    /// Client ID (AppKey) from DingTalk developer console
-    pub client_id: String,
-    /// Client Secret (AppSecret) from DingTalk developer console
-    pub client_secret: String,
-    /// Allowed user IDs (staff IDs). Empty = deny all, "*" = allow all
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-}
-
-impl ChannelConfig for DingTalkConfig {
-    fn name() -> &'static str {
-        "DingTalk"
-    }
-    fn desc() -> &'static str {
-        "DingTalk Stream Mode"
-    }
-}
-
-/// QQ Official Bot configuration (Tencent QQ Bot SDK)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct QQConfig {
-    /// App ID from QQ Bot developer console
-    pub app_id: String,
-    /// App Secret from QQ Bot developer console
-    pub app_secret: String,
-    /// Allowed user IDs. Empty = deny all, "*" = allow all
-    #[serde(default)]
-    pub allowed_users: Vec<String>,
-}
-
-impl ChannelConfig for QQConfig {
-    fn name() -> &'static str {
-        "QQ Official"
-    }
-    fn desc() -> &'static str {
-        "Tencent QQ Bot"
-    }
-}
-
-/// Nostr channel configuration (NIP-04 + NIP-17 private messages)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct NostrConfig {
-    /// Private key in hex or nsec bech32 format
-    pub private_key: String,
-    /// Relay URLs (wss://). Defaults to popular public relays if omitted.
-    #[serde(default = "default_nostr_relays")]
-    pub relays: Vec<String>,
-    /// Allowed sender public keys (hex or npub). Empty = deny all, "*" = allow all
-    #[serde(default)]
-    pub allowed_pubkeys: Vec<String>,
-}
-
-impl ChannelConfig for NostrConfig {
-    fn name() -> &'static str {
-        "Nostr"
-    }
-    fn desc() -> &'static str {
-        "Nostr DMs"
-    }
-}
-
-pub fn default_nostr_relays() -> Vec<String> {
-    vec![
-        "wss://relay.damus.io".to_string(),
-        "wss://nos.lol".to_string(),
-        "wss://relay.primal.net".to_string(),
-        "wss://relay.snort.social".to_string(),
-    ]
-}
 
 // ── Config impl ──────────────────────────────────────────────────
 
@@ -3503,14 +2919,6 @@ impl Config {
 
             for agent in config.agents.values_mut() {
                 decrypt_optional_secret(&store, &mut agent.api_key, "config.agents.*.api_key")?;
-            }
-
-            if let Some(ref mut ns) = config.channels_config.nostr {
-                decrypt_secret(
-                    &store,
-                    &mut ns.private_key,
-                    "config.channels_config.nostr.private_key",
-                )?;
             }
 
             config.apply_env_overrides();
@@ -4087,6 +3495,37 @@ impl Config {
         }
 
         set_runtime_proxy_config(self.proxy.clone());
+
+        // Discord bot token: DISCORD_TOKEN
+        if let Ok(token) = std::env::var("DISCORD_TOKEN") {
+            let token = token.trim();
+            if !token.is_empty() {
+                self.channels_config.discord = Some(DiscordConfig {
+                    bot_token: token.to_string(),
+                    guild_id: None,
+                    allowed_users: vec!["*".to_string()], // Default to allow all users
+                    listen_to_bots: false,
+                    mention_only: false,
+                });
+                tracing::info!("Discord channel configured from DISCORD_TOKEN environment variable");
+            }
+        }
+
+        // Telegram bot token: TELEGRAM_BOT_TOKEN
+        if let Ok(token) = std::env::var("TELEGRAM_BOT_TOKEN") {
+            let token = token.trim();
+            if !token.is_empty() {
+                self.channels_config.telegram = Some(TelegramConfig {
+                    bot_token: token.to_string(),
+                    allowed_users: vec!["*".to_string()], // Default to allow all users
+                    stream_mode: StreamMode::default(),
+                    draft_update_interval_ms: default_draft_update_interval_ms(),
+                    interrupt_on_new_message: false,
+                    mention_only: false,
+                });
+                tracing::info!("Telegram channel configured from TELEGRAM_BOT_TOKEN environment variable");
+            }
+        }
     }
 
     pub async fn save(&self) -> Result<()> {
@@ -4125,14 +3564,6 @@ impl Config {
 
         for agent in config_to_save.agents.values_mut() {
             encrypt_optional_secret(&store, &mut agent.api_key, "config.agents.*.api_key")?;
-        }
-
-        if let Some(ref mut ns) = config_to_save.channels_config.nostr {
-            encrypt_secret(
-                &store,
-                &mut ns.private_key,
-                "config.channels_config.nostr.private_key",
-            )?;
         }
 
         let toml_str =
@@ -4398,15 +3829,11 @@ mod tests {
 enabled = true
 interval_minutes = 10
 message = "Ping"
-channel = "telegram"
-recipient = "42"
 "#;
         let parsed: HeartbeatConfig = toml::from_str(raw).unwrap();
         assert!(parsed.enabled);
         assert_eq!(parsed.interval_minutes, 10);
         assert_eq!(parsed.message.as_deref(), Some("Ping"));
-        assert_eq!(parsed.target.as_deref(), Some("telegram"));
-        assert_eq!(parsed.to.as_deref(), Some("42"));
     }
 
     #[test]
@@ -4482,8 +3909,7 @@ default_temperature = 0.7
     async fn channels_config_default() {
         let c = ChannelsConfig::default();
         assert!(c.cli);
-        assert!(c.telegram.is_none());
-        assert!(c.discord.is_none());
+        assert_eq!(c.message_timeout_secs, 300);
     }
 
     // ── Serde round-trip ─────────────────────────────────────
@@ -4533,39 +3959,12 @@ default_temperature = 0.7
                 enabled: true,
                 interval_minutes: 15,
                 message: Some("Check London time".into()),
-                target: Some("telegram".into()),
-                to: Some("123456".into()),
+                target: None,
+                to: None,
             },
             cron: CronConfig::default(),
             channels_config: ChannelsConfig {
                 cli: true,
-                telegram: Some(TelegramConfig {
-                    bot_token: "123:ABC".into(),
-                    allowed_users: vec!["user1".into()],
-                    stream_mode: StreamMode::default(),
-                    draft_update_interval_ms: default_draft_update_interval_ms(),
-                    interrupt_on_new_message: false,
-                    mention_only: false,
-                }),
-                discord: None,
-                slack: None,
-                mattermost: None,
-                webhook: None,
-                imessage: None,
-                matrix: None,
-                signal: None,
-                whatsapp: None,
-                linq: None,
-                wati: None,
-                nextcloud_talk: None,
-                email: None,
-                irc: None,
-                lark: None,
-                feishu: None,
-                dingtalk: None,
-                qq: None,
-                nostr: None,
-                clawdtalk: None,
                 message_timeout_secs: 300,
             },
             memory: MemoryConfig::default(),
@@ -4608,13 +4007,7 @@ default_temperature = 0.7
             parsed.heartbeat.message.as_deref(),
             Some("Check London time")
         );
-        assert_eq!(parsed.heartbeat.target.as_deref(), Some("telegram"));
-        assert_eq!(parsed.heartbeat.to.as_deref(), Some("123456"));
-        assert!(parsed.channels_config.telegram.is_some());
-        assert_eq!(
-            parsed.channels_config.telegram.unwrap().bot_token,
-            "123:ABC"
-        );
+        assert!(parsed.channels_config.cli);
     }
 
     #[test]
@@ -4904,758 +4297,6 @@ tool_dispatcher = "xml"
         assert!(!names.iter().any(|name| name.ends_with(".bak")));
 
         let _ = fs::remove_dir_all(&dir).await;
-    }
-
-    // ── Telegram / Discord config ────────────────────────────
-
-    #[test]
-    async fn telegram_config_serde() {
-        let tc = TelegramConfig {
-            bot_token: "123:XYZ".into(),
-            allowed_users: vec!["alice".into(), "bob".into()],
-            stream_mode: StreamMode::Partial,
-            draft_update_interval_ms: 500,
-            interrupt_on_new_message: true,
-            mention_only: false,
-        };
-        let json = serde_json::to_string(&tc).unwrap();
-        let parsed: TelegramConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.bot_token, "123:XYZ");
-        assert_eq!(parsed.allowed_users.len(), 2);
-        assert_eq!(parsed.stream_mode, StreamMode::Partial);
-        assert_eq!(parsed.draft_update_interval_ms, 500);
-        assert!(parsed.interrupt_on_new_message);
-    }
-
-    #[test]
-    async fn telegram_config_defaults_stream_off() {
-        let json = r#"{"bot_token":"tok","allowed_users":[]}"#;
-        let parsed: TelegramConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(parsed.stream_mode, StreamMode::Off);
-        assert_eq!(parsed.draft_update_interval_ms, 1000);
-        assert!(!parsed.interrupt_on_new_message);
-    }
-
-    #[test]
-    async fn discord_config_serde() {
-        let dc = DiscordConfig {
-            bot_token: "discord-token".into(),
-            guild_id: Some("12345".into()),
-            allowed_users: vec![],
-            listen_to_bots: false,
-            mention_only: false,
-        };
-        let json = serde_json::to_string(&dc).unwrap();
-        let parsed: DiscordConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.bot_token, "discord-token");
-        assert_eq!(parsed.guild_id.as_deref(), Some("12345"));
-    }
-
-    #[test]
-    async fn discord_config_optional_guild() {
-        let dc = DiscordConfig {
-            bot_token: "tok".into(),
-            guild_id: None,
-            allowed_users: vec![],
-            listen_to_bots: false,
-            mention_only: false,
-        };
-        let json = serde_json::to_string(&dc).unwrap();
-        let parsed: DiscordConfig = serde_json::from_str(&json).unwrap();
-        assert!(parsed.guild_id.is_none());
-    }
-
-    // ── iMessage / Matrix config ────────────────────────────
-
-    #[test]
-    async fn imessage_config_serde() {
-        let ic = IMessageConfig {
-            allowed_contacts: vec!["+1234567890".into(), "user@icloud.com".into()],
-        };
-        let json = serde_json::to_string(&ic).unwrap();
-        let parsed: IMessageConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.allowed_contacts.len(), 2);
-        assert_eq!(parsed.allowed_contacts[0], "+1234567890");
-    }
-
-    #[test]
-    async fn imessage_config_empty_contacts() {
-        let ic = IMessageConfig {
-            allowed_contacts: vec![],
-        };
-        let json = serde_json::to_string(&ic).unwrap();
-        let parsed: IMessageConfig = serde_json::from_str(&json).unwrap();
-        assert!(parsed.allowed_contacts.is_empty());
-    }
-
-    #[test]
-    async fn imessage_config_wildcard() {
-        let ic = IMessageConfig {
-            allowed_contacts: vec!["*".into()],
-        };
-        let toml_str = toml::to_string(&ic).unwrap();
-        let parsed: IMessageConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.allowed_contacts, vec!["*"]);
-    }
-
-    #[test]
-    async fn matrix_config_serde() {
-        let mc = MatrixConfig {
-            homeserver: "https://matrix.org".into(),
-            access_token: "syt_token_abc".into(),
-            user_id: Some("@bot:matrix.org".into()),
-            device_id: Some("DEVICE123".into()),
-            room_id: "!room123:matrix.org".into(),
-            allowed_users: vec!["@user:matrix.org".into()],
-        };
-        let json = serde_json::to_string(&mc).unwrap();
-        let parsed: MatrixConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.homeserver, "https://matrix.org");
-        assert_eq!(parsed.access_token, "syt_token_abc");
-        assert_eq!(parsed.user_id.as_deref(), Some("@bot:matrix.org"));
-        assert_eq!(parsed.device_id.as_deref(), Some("DEVICE123"));
-        assert_eq!(parsed.room_id, "!room123:matrix.org");
-        assert_eq!(parsed.allowed_users.len(), 1);
-    }
-
-    #[test]
-    async fn matrix_config_toml_roundtrip() {
-        let mc = MatrixConfig {
-            homeserver: "https://synapse.local:8448".into(),
-            access_token: "tok".into(),
-            user_id: None,
-            device_id: None,
-            room_id: "!abc:synapse.local".into(),
-            allowed_users: vec!["@admin:synapse.local".into(), "*".into()],
-        };
-        let toml_str = toml::to_string(&mc).unwrap();
-        let parsed: MatrixConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.homeserver, "https://synapse.local:8448");
-        assert_eq!(parsed.allowed_users.len(), 2);
-    }
-
-    #[test]
-    async fn matrix_config_backward_compatible_without_session_hints() {
-        let toml = r#"
-homeserver = "https://matrix.org"
-access_token = "tok"
-room_id = "!ops:matrix.org"
-allowed_users = ["@ops:matrix.org"]
-"#;
-
-        let parsed: MatrixConfig = toml::from_str(toml).unwrap();
-        assert_eq!(parsed.homeserver, "https://matrix.org");
-        assert!(parsed.user_id.is_none());
-        assert!(parsed.device_id.is_none());
-    }
-
-    #[test]
-    async fn signal_config_serde() {
-        let sc = SignalConfig {
-            http_url: "http://127.0.0.1:8686".into(),
-            account: "+1234567890".into(),
-            group_id: Some("group123".into()),
-            allowed_from: vec!["+1111111111".into()],
-            ignore_attachments: true,
-            ignore_stories: false,
-        };
-        let json = serde_json::to_string(&sc).unwrap();
-        let parsed: SignalConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.http_url, "http://127.0.0.1:8686");
-        assert_eq!(parsed.account, "+1234567890");
-        assert_eq!(parsed.group_id.as_deref(), Some("group123"));
-        assert_eq!(parsed.allowed_from.len(), 1);
-        assert!(parsed.ignore_attachments);
-        assert!(!parsed.ignore_stories);
-    }
-
-    #[test]
-    async fn signal_config_toml_roundtrip() {
-        let sc = SignalConfig {
-            http_url: "http://localhost:8080".into(),
-            account: "+9876543210".into(),
-            group_id: None,
-            allowed_from: vec!["*".into()],
-            ignore_attachments: false,
-            ignore_stories: true,
-        };
-        let toml_str = toml::to_string(&sc).unwrap();
-        let parsed: SignalConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.http_url, "http://localhost:8080");
-        assert_eq!(parsed.account, "+9876543210");
-        assert!(parsed.group_id.is_none());
-        assert!(parsed.ignore_stories);
-    }
-
-    #[test]
-    async fn signal_config_defaults() {
-        let json = r#"{"http_url":"http://127.0.0.1:8686","account":"+1234567890"}"#;
-        let parsed: SignalConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.group_id.is_none());
-        assert!(parsed.allowed_from.is_empty());
-        assert!(!parsed.ignore_attachments);
-        assert!(!parsed.ignore_stories);
-    }
-
-    #[test]
-    async fn channels_config_with_imessage_and_matrix() {
-        let c = ChannelsConfig {
-            cli: true,
-            telegram: None,
-            discord: None,
-            slack: None,
-            mattermost: None,
-            webhook: None,
-            imessage: Some(IMessageConfig {
-                allowed_contacts: vec!["+1".into()],
-            }),
-            matrix: Some(MatrixConfig {
-                homeserver: "https://m.org".into(),
-                access_token: "tok".into(),
-                user_id: None,
-                device_id: None,
-                room_id: "!r:m".into(),
-                allowed_users: vec!["@u:m".into()],
-            }),
-            signal: None,
-            whatsapp: None,
-            linq: None,
-            wati: None,
-            nextcloud_talk: None,
-            email: None,
-            irc: None,
-            lark: None,
-            feishu: None,
-            dingtalk: None,
-            qq: None,
-            nostr: None,
-            clawdtalk: None,
-            message_timeout_secs: 300,
-        };
-        let toml_str = toml::to_string_pretty(&c).unwrap();
-        let parsed: ChannelsConfig = toml::from_str(&toml_str).unwrap();
-        assert!(parsed.imessage.is_some());
-        assert!(parsed.matrix.is_some());
-        assert_eq!(parsed.imessage.unwrap().allowed_contacts, vec!["+1"]);
-        assert_eq!(parsed.matrix.unwrap().homeserver, "https://m.org");
-    }
-
-    #[test]
-    async fn channels_config_default_has_no_imessage_matrix() {
-        let c = ChannelsConfig::default();
-        assert!(c.imessage.is_none());
-        assert!(c.matrix.is_none());
-    }
-
-    // ── Edge cases: serde(default) for allowed_users ─────────
-
-    #[test]
-    async fn discord_config_deserializes_without_allowed_users() {
-        // Old configs won't have allowed_users — serde(default) should fill vec![]
-        let json = r#"{"bot_token":"tok","guild_id":"123"}"#;
-        let parsed: DiscordConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.allowed_users.is_empty());
-    }
-
-    #[test]
-    async fn discord_config_deserializes_with_allowed_users() {
-        let json = r#"{"bot_token":"tok","guild_id":"123","allowed_users":["111","222"]}"#;
-        let parsed: DiscordConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(parsed.allowed_users, vec!["111", "222"]);
-    }
-
-    #[test]
-    async fn slack_config_deserializes_without_allowed_users() {
-        let json = r#"{"bot_token":"xoxb-tok"}"#;
-        let parsed: SlackConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.allowed_users.is_empty());
-    }
-
-    #[test]
-    async fn slack_config_deserializes_with_allowed_users() {
-        let json = r#"{"bot_token":"xoxb-tok","allowed_users":["U111"]}"#;
-        let parsed: SlackConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(parsed.allowed_users, vec!["U111"]);
-    }
-
-    #[test]
-    async fn discord_config_toml_backward_compat() {
-        let toml_str = r#"
-bot_token = "tok"
-guild_id = "123"
-"#;
-        let parsed: DiscordConfig = toml::from_str(toml_str).unwrap();
-        assert!(parsed.allowed_users.is_empty());
-        assert_eq!(parsed.bot_token, "tok");
-    }
-
-    #[test]
-    async fn slack_config_toml_backward_compat() {
-        let toml_str = r#"
-bot_token = "xoxb-tok"
-channel_id = "C123"
-"#;
-        let parsed: SlackConfig = toml::from_str(toml_str).unwrap();
-        assert!(parsed.allowed_users.is_empty());
-        assert_eq!(parsed.channel_id.as_deref(), Some("C123"));
-    }
-
-    #[test]
-    async fn webhook_config_with_secret() {
-        let json = r#"{"port":8080,"secret":"my-secret-key"}"#;
-        let parsed: WebhookConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(parsed.secret.as_deref(), Some("my-secret-key"));
-    }
-
-    #[test]
-    async fn webhook_config_without_secret() {
-        let json = r#"{"port":8080}"#;
-        let parsed: WebhookConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.secret.is_none());
-        assert_eq!(parsed.port, 8080);
-    }
-
-    // ── WhatsApp config ──────────────────────────────────────
-
-    #[test]
-    async fn whatsapp_config_serde() {
-        let wc = WhatsAppConfig {
-            access_token: Some("EAABx...".into()),
-            phone_number_id: Some("123456789".into()),
-            verify_token: Some("my-verify-token".into()),
-            app_secret: None,
-            session_path: None,
-            pair_phone: None,
-            pair_code: None,
-            allowed_numbers: vec!["+1234567890".into(), "+9876543210".into()],
-        };
-        let json = serde_json::to_string(&wc).unwrap();
-        let parsed: WhatsAppConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.access_token, Some("EAABx...".into()));
-        assert_eq!(parsed.phone_number_id, Some("123456789".into()));
-        assert_eq!(parsed.verify_token, Some("my-verify-token".into()));
-        assert_eq!(parsed.allowed_numbers.len(), 2);
-    }
-
-    #[test]
-    async fn whatsapp_config_toml_roundtrip() {
-        let wc = WhatsAppConfig {
-            access_token: Some("tok".into()),
-            phone_number_id: Some("12345".into()),
-            verify_token: Some("verify".into()),
-            app_secret: Some("secret123".into()),
-            session_path: None,
-            pair_phone: None,
-            pair_code: None,
-            allowed_numbers: vec!["+1".into()],
-        };
-        let toml_str = toml::to_string(&wc).unwrap();
-        let parsed: WhatsAppConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.phone_number_id, Some("12345".into()));
-        assert_eq!(parsed.allowed_numbers, vec!["+1"]);
-    }
-
-    #[test]
-    async fn whatsapp_config_deserializes_without_allowed_numbers() {
-        let json = r#"{"access_token":"tok","phone_number_id":"123","verify_token":"ver"}"#;
-        let parsed: WhatsAppConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.allowed_numbers.is_empty());
-    }
-
-    #[test]
-    async fn whatsapp_config_wildcard_allowed() {
-        let wc = WhatsAppConfig {
-            access_token: Some("tok".into()),
-            phone_number_id: Some("123".into()),
-            verify_token: Some("ver".into()),
-            app_secret: None,
-            session_path: None,
-            pair_phone: None,
-            pair_code: None,
-            allowed_numbers: vec!["*".into()],
-        };
-        let toml_str = toml::to_string(&wc).unwrap();
-        let parsed: WhatsAppConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.allowed_numbers, vec!["*"]);
-    }
-
-    #[test]
-    async fn whatsapp_config_backend_type_cloud_precedence_when_ambiguous() {
-        let wc = WhatsAppConfig {
-            access_token: Some("tok".into()),
-            phone_number_id: Some("123".into()),
-            verify_token: Some("ver".into()),
-            app_secret: None,
-            session_path: Some("~/.zeroclaw/state/whatsapp-web/session.db".into()),
-            pair_phone: None,
-            pair_code: None,
-            allowed_numbers: vec!["+1".into()],
-        };
-        assert!(wc.is_ambiguous_config());
-        assert_eq!(wc.backend_type(), "cloud");
-    }
-
-    #[test]
-    async fn whatsapp_config_backend_type_web() {
-        let wc = WhatsAppConfig {
-            access_token: None,
-            phone_number_id: None,
-            verify_token: None,
-            app_secret: None,
-            session_path: Some("~/.zeroclaw/state/whatsapp-web/session.db".into()),
-            pair_phone: None,
-            pair_code: None,
-            allowed_numbers: vec![],
-        };
-        assert!(!wc.is_ambiguous_config());
-        assert_eq!(wc.backend_type(), "web");
-    }
-
-    #[test]
-    async fn channels_config_with_whatsapp() {
-        let c = ChannelsConfig {
-            cli: true,
-            telegram: None,
-            discord: None,
-            slack: None,
-            mattermost: None,
-            webhook: None,
-            imessage: None,
-            matrix: None,
-            signal: None,
-            whatsapp: Some(WhatsAppConfig {
-                access_token: Some("tok".into()),
-                phone_number_id: Some("123".into()),
-                verify_token: Some("ver".into()),
-                app_secret: None,
-                session_path: None,
-                pair_phone: None,
-                pair_code: None,
-                allowed_numbers: vec!["+1".into()],
-            }),
-            linq: None,
-            wati: None,
-            nextcloud_talk: None,
-            email: None,
-            irc: None,
-            lark: None,
-            feishu: None,
-            dingtalk: None,
-            qq: None,
-            nostr: None,
-            clawdtalk: None,
-            message_timeout_secs: 300,
-        };
-        let toml_str = toml::to_string_pretty(&c).unwrap();
-        let parsed: ChannelsConfig = toml::from_str(&toml_str).unwrap();
-        assert!(parsed.whatsapp.is_some());
-        let wa = parsed.whatsapp.unwrap();
-        assert_eq!(wa.phone_number_id, Some("123".into()));
-        assert_eq!(wa.allowed_numbers, vec!["+1"]);
-    }
-
-    #[test]
-    async fn channels_config_default_has_no_whatsapp() {
-        let c = ChannelsConfig::default();
-        assert!(c.whatsapp.is_none());
-    }
-
-    #[test]
-    async fn channels_config_default_has_no_nextcloud_talk() {
-        let c = ChannelsConfig::default();
-        assert!(c.nextcloud_talk.is_none());
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // SECURITY CHECKLIST TESTS — Gateway config
-    // ══════════════════════════════════════════════════════════
-
-    #[test]
-    async fn checklist_gateway_default_requires_pairing() {
-        let g = GatewayConfig::default();
-        assert!(g.require_pairing, "Pairing must be required by default");
-    }
-
-    #[test]
-    async fn checklist_gateway_default_blocks_public_bind() {
-        let g = GatewayConfig::default();
-        assert!(
-            !g.allow_public_bind,
-            "Public bind must be blocked by default"
-        );
-    }
-
-    #[test]
-    async fn checklist_gateway_default_no_tokens() {
-        let g = GatewayConfig::default();
-        assert!(
-            g.paired_tokens.is_empty(),
-            "No pre-paired tokens by default"
-        );
-        assert_eq!(g.pair_rate_limit_per_minute, 10);
-        assert_eq!(g.webhook_rate_limit_per_minute, 60);
-        assert!(!g.trust_forwarded_headers);
-        assert_eq!(g.rate_limit_max_keys, 10_000);
-        assert_eq!(g.idempotency_ttl_secs, 300);
-        assert_eq!(g.idempotency_max_keys, 10_000);
-    }
-
-    #[test]
-    async fn checklist_gateway_cli_default_host_is_localhost() {
-        // The CLI default for --host is 127.0.0.1 (checked in main.rs)
-        // Here we verify the config default matches
-        let c = Config::default();
-        assert!(
-            c.gateway.require_pairing,
-            "Config default must require pairing"
-        );
-        assert!(
-            !c.gateway.allow_public_bind,
-            "Config default must block public bind"
-        );
-    }
-
-    #[test]
-    async fn checklist_gateway_serde_roundtrip() {
-        let g = GatewayConfig {
-            port: 42617,
-            host: "127.0.0.1".into(),
-            require_pairing: false,
-            allow_public_bind: false,
-            paired_tokens: vec!["zc_test_token".into()],
-            pair_rate_limit_per_minute: 12,
-            webhook_rate_limit_per_minute: 80,
-            trust_forwarded_headers: true,
-            rate_limit_max_keys: 2048,
-            idempotency_ttl_secs: 600,
-            idempotency_max_keys: 4096,
-        };
-        let toml_str = toml::to_string(&g).unwrap();
-        let parsed: GatewayConfig = toml::from_str(&toml_str).unwrap();
-        assert!(parsed.require_pairing);
-        assert!(!parsed.allow_public_bind);
-        assert_eq!(parsed.paired_tokens, vec!["zc_test_token"]);
-        assert_eq!(parsed.pair_rate_limit_per_minute, 12);
-        assert_eq!(parsed.webhook_rate_limit_per_minute, 80);
-        assert!(parsed.trust_forwarded_headers);
-        assert_eq!(parsed.rate_limit_max_keys, 2048);
-        assert_eq!(parsed.idempotency_ttl_secs, 600);
-        assert_eq!(parsed.idempotency_max_keys, 4096);
-    }
-
-    #[test]
-    async fn checklist_gateway_backward_compat_no_gateway_section() {
-        // Old configs without [gateway] should get secure defaults
-        let minimal = r#"
-workspace_dir = "/tmp/ws"
-config_path = "/tmp/config.toml"
-default_temperature = 0.7
-"#;
-        let parsed: Config = toml::from_str(minimal).unwrap();
-        assert!(
-            parsed.gateway.require_pairing,
-            "Missing [gateway] must default to require_pairing=true"
-        );
-        assert!(
-            !parsed.gateway.allow_public_bind,
-            "Missing [gateway] must default to allow_public_bind=false"
-        );
-    }
-
-    #[test]
-    async fn checklist_autonomy_default_is_workspace_scoped() {
-        let a = AutonomyConfig::default();
-        assert!(a.workspace_only, "Default autonomy must be workspace_only");
-        assert!(
-            a.forbidden_paths.contains(&"/etc".to_string()),
-            "Must block /etc"
-        );
-        assert!(
-            a.forbidden_paths.contains(&"/proc".to_string()),
-            "Must block /proc"
-        );
-        assert!(
-            a.forbidden_paths.contains(&"~/.ssh".to_string()),
-            "Must block ~/.ssh"
-        );
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // COMPOSIO CONFIG TESTS
-    // ══════════════════════════════════════════════════════════
-
-    #[test]
-    async fn composio_config_default_disabled() {
-        let c = ComposioConfig::default();
-        assert!(!c.enabled, "Composio must be disabled by default");
-        assert!(c.api_key.is_none(), "No API key by default");
-        assert_eq!(c.entity_id, "default");
-    }
-
-    #[test]
-    async fn composio_config_serde_roundtrip() {
-        let c = ComposioConfig {
-            enabled: true,
-            api_key: Some("comp-key-123".into()),
-            entity_id: "user42".into(),
-        };
-        let toml_str = toml::to_string(&c).unwrap();
-        let parsed: ComposioConfig = toml::from_str(&toml_str).unwrap();
-        assert!(parsed.enabled);
-        assert_eq!(parsed.api_key.as_deref(), Some("comp-key-123"));
-        assert_eq!(parsed.entity_id, "user42");
-    }
-
-    #[test]
-    async fn composio_config_backward_compat_missing_section() {
-        let minimal = r#"
-workspace_dir = "/tmp/ws"
-config_path = "/tmp/config.toml"
-default_temperature = 0.7
-"#;
-        let parsed: Config = toml::from_str(minimal).unwrap();
-        assert!(
-            !parsed.composio.enabled,
-            "Missing [composio] must default to disabled"
-        );
-        assert!(parsed.composio.api_key.is_none());
-    }
-
-    #[test]
-    async fn composio_config_partial_toml() {
-        let toml_str = r"
-enabled = true
-";
-        let parsed: ComposioConfig = toml::from_str(toml_str).unwrap();
-        assert!(parsed.enabled);
-        assert!(parsed.api_key.is_none());
-        assert_eq!(parsed.entity_id, "default");
-    }
-
-    #[test]
-    async fn composio_config_enable_alias_supported() {
-        let toml_str = r"
-enable = true
-";
-        let parsed: ComposioConfig = toml::from_str(toml_str).unwrap();
-        assert!(parsed.enabled);
-        assert!(parsed.api_key.is_none());
-        assert_eq!(parsed.entity_id, "default");
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // SECRETS CONFIG TESTS
-    // ══════════════════════════════════════════════════════════
-
-    #[test]
-    async fn secrets_config_default_encrypts() {
-        let s = SecretsConfig::default();
-        assert!(s.encrypt, "Encryption must be enabled by default");
-    }
-
-    #[test]
-    async fn secrets_config_serde_roundtrip() {
-        let s = SecretsConfig { encrypt: false };
-        let toml_str = toml::to_string(&s).unwrap();
-        let parsed: SecretsConfig = toml::from_str(&toml_str).unwrap();
-        assert!(!parsed.encrypt);
-    }
-
-    #[test]
-    async fn secrets_config_backward_compat_missing_section() {
-        let minimal = r#"
-workspace_dir = "/tmp/ws"
-config_path = "/tmp/config.toml"
-default_temperature = 0.7
-"#;
-        let parsed: Config = toml::from_str(minimal).unwrap();
-        assert!(
-            parsed.secrets.encrypt,
-            "Missing [secrets] must default to encrypt=true"
-        );
-    }
-
-    #[test]
-    async fn config_default_has_composio_and_secrets() {
-        let c = Config::default();
-        assert!(!c.composio.enabled);
-        assert!(c.composio.api_key.is_none());
-        assert!(c.secrets.encrypt);
-        assert!(!c.browser.enabled);
-        assert!(c.browser.allowed_domains.is_empty());
-    }
-
-    #[test]
-    async fn browser_config_default_disabled() {
-        let b = BrowserConfig::default();
-        assert!(!b.enabled);
-        assert!(b.allowed_domains.is_empty());
-        assert_eq!(b.backend, "agent_browser");
-        assert!(b.native_headless);
-        assert_eq!(b.native_webdriver_url, "http://127.0.0.1:9515");
-        assert!(b.native_chrome_path.is_none());
-        assert_eq!(b.computer_use.endpoint, "http://127.0.0.1:8787/v1/actions");
-        assert_eq!(b.computer_use.timeout_ms, 15_000);
-        assert!(!b.computer_use.allow_remote_endpoint);
-        assert!(b.computer_use.window_allowlist.is_empty());
-        assert!(b.computer_use.max_coordinate_x.is_none());
-        assert!(b.computer_use.max_coordinate_y.is_none());
-    }
-
-    #[test]
-    async fn browser_config_serde_roundtrip() {
-        let b = BrowserConfig {
-            enabled: true,
-            allowed_domains: vec!["example.com".into(), "docs.example.com".into()],
-            session_name: None,
-            backend: "auto".into(),
-            native_headless: false,
-            native_webdriver_url: "http://localhost:4444".into(),
-            native_chrome_path: Some("/usr/bin/chromium".into()),
-            computer_use: BrowserComputerUseConfig {
-                endpoint: "https://computer-use.example.com/v1/actions".into(),
-                api_key: Some("test-token".into()),
-                timeout_ms: 8_000,
-                allow_remote_endpoint: true,
-                window_allowlist: vec!["Chrome".into(), "Visual Studio Code".into()],
-                max_coordinate_x: Some(3840),
-                max_coordinate_y: Some(2160),
-            },
-        };
-        let toml_str = toml::to_string(&b).unwrap();
-        let parsed: BrowserConfig = toml::from_str(&toml_str).unwrap();
-        assert!(parsed.enabled);
-        assert_eq!(parsed.allowed_domains.len(), 2);
-        assert_eq!(parsed.allowed_domains[0], "example.com");
-        assert_eq!(parsed.backend, "auto");
-        assert!(!parsed.native_headless);
-        assert_eq!(parsed.native_webdriver_url, "http://localhost:4444");
-        assert_eq!(
-            parsed.native_chrome_path.as_deref(),
-            Some("/usr/bin/chromium")
-        );
-        assert_eq!(
-            parsed.computer_use.endpoint,
-            "https://computer-use.example.com/v1/actions"
-        );
-        assert_eq!(parsed.computer_use.api_key.as_deref(), Some("test-token"));
-        assert_eq!(parsed.computer_use.timeout_ms, 8_000);
-        assert!(parsed.computer_use.allow_remote_endpoint);
-        assert_eq!(parsed.computer_use.window_allowlist.len(), 2);
-        assert_eq!(parsed.computer_use.max_coordinate_x, Some(3840));
-        assert_eq!(parsed.computer_use.max_coordinate_y, Some(2160));
-    }
-
-    #[test]
-    async fn browser_config_backward_compat_missing_section() {
-        let minimal = r#"
-workspace_dir = "/tmp/ws"
-config_path = "/tmp/config.toml"
-default_temperature = 0.7
-"#;
-        let parsed: Config = toml::from_str(minimal).unwrap();
-        assert!(!parsed.browser.enabled);
-        assert!(parsed.browser.allowed_domains.is_empty());
     }
 
     // ── Environment variable overrides (Docker support) ─────────
@@ -6733,152 +5374,6 @@ default_model = "legacy-model"
         assert_eq!(parsed.boards[0].path.as_deref(), Some("/dev/ttyACM0"));
     }
 
-    #[test]
-    async fn lark_config_serde() {
-        let lc = LarkConfig {
-            app_id: "cli_123456".into(),
-            app_secret: "secret_abc".into(),
-            encrypt_key: Some("encrypt_key".into()),
-            verification_token: Some("verify_token".into()),
-            allowed_users: vec!["user_123".into(), "user_456".into()],
-            mention_only: false,
-            use_feishu: true,
-            receive_mode: LarkReceiveMode::Websocket,
-            port: None,
-        };
-        let json = serde_json::to_string(&lc).unwrap();
-        let parsed: LarkConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.app_id, "cli_123456");
-        assert_eq!(parsed.app_secret, "secret_abc");
-        assert_eq!(parsed.encrypt_key.as_deref(), Some("encrypt_key"));
-        assert_eq!(parsed.verification_token.as_deref(), Some("verify_token"));
-        assert_eq!(parsed.allowed_users.len(), 2);
-        assert!(parsed.use_feishu);
-    }
-
-    #[test]
-    async fn lark_config_toml_roundtrip() {
-        let lc = LarkConfig {
-            app_id: "cli_123456".into(),
-            app_secret: "secret_abc".into(),
-            encrypt_key: Some("encrypt_key".into()),
-            verification_token: Some("verify_token".into()),
-            allowed_users: vec!["*".into()],
-            mention_only: false,
-            use_feishu: false,
-            receive_mode: LarkReceiveMode::Webhook,
-            port: Some(9898),
-        };
-        let toml_str = toml::to_string(&lc).unwrap();
-        let parsed: LarkConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.app_id, "cli_123456");
-        assert_eq!(parsed.app_secret, "secret_abc");
-        assert!(!parsed.use_feishu);
-    }
-
-    #[test]
-    async fn lark_config_deserializes_without_optional_fields() {
-        let json = r#"{"app_id":"cli_123","app_secret":"secret"}"#;
-        let parsed: LarkConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.encrypt_key.is_none());
-        assert!(parsed.verification_token.is_none());
-        assert!(parsed.allowed_users.is_empty());
-        assert!(!parsed.mention_only);
-        assert!(!parsed.use_feishu);
-    }
-
-    #[test]
-    async fn lark_config_defaults_to_lark_endpoint() {
-        let json = r#"{"app_id":"cli_123","app_secret":"secret"}"#;
-        let parsed: LarkConfig = serde_json::from_str(json).unwrap();
-        assert!(
-            !parsed.use_feishu,
-            "use_feishu should default to false (Lark)"
-        );
-    }
-
-    #[test]
-    async fn lark_config_with_wildcard_allowed_users() {
-        let json = r#"{"app_id":"cli_123","app_secret":"secret","allowed_users":["*"]}"#;
-        let parsed: LarkConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(parsed.allowed_users, vec!["*"]);
-    }
-
-    #[test]
-    async fn feishu_config_serde() {
-        let fc = FeishuConfig {
-            app_id: "cli_feishu_123".into(),
-            app_secret: "secret_abc".into(),
-            encrypt_key: Some("encrypt_key".into()),
-            verification_token: Some("verify_token".into()),
-            allowed_users: vec!["user_123".into(), "user_456".into()],
-            receive_mode: LarkReceiveMode::Websocket,
-            port: None,
-        };
-        let json = serde_json::to_string(&fc).unwrap();
-        let parsed: FeishuConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.app_id, "cli_feishu_123");
-        assert_eq!(parsed.app_secret, "secret_abc");
-        assert_eq!(parsed.encrypt_key.as_deref(), Some("encrypt_key"));
-        assert_eq!(parsed.verification_token.as_deref(), Some("verify_token"));
-        assert_eq!(parsed.allowed_users.len(), 2);
-    }
-
-    #[test]
-    async fn feishu_config_toml_roundtrip() {
-        let fc = FeishuConfig {
-            app_id: "cli_feishu_123".into(),
-            app_secret: "secret_abc".into(),
-            encrypt_key: Some("encrypt_key".into()),
-            verification_token: Some("verify_token".into()),
-            allowed_users: vec!["*".into()],
-            receive_mode: LarkReceiveMode::Webhook,
-            port: Some(9898),
-        };
-        let toml_str = toml::to_string(&fc).unwrap();
-        let parsed: FeishuConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.app_id, "cli_feishu_123");
-        assert_eq!(parsed.app_secret, "secret_abc");
-        assert_eq!(parsed.receive_mode, LarkReceiveMode::Webhook);
-        assert_eq!(parsed.port, Some(9898));
-    }
-
-    #[test]
-    async fn feishu_config_deserializes_without_optional_fields() {
-        let json = r#"{"app_id":"cli_123","app_secret":"secret"}"#;
-        let parsed: FeishuConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.encrypt_key.is_none());
-        assert!(parsed.verification_token.is_none());
-        assert!(parsed.allowed_users.is_empty());
-        assert_eq!(parsed.receive_mode, LarkReceiveMode::Websocket);
-        assert!(parsed.port.is_none());
-    }
-
-    #[test]
-    async fn nextcloud_talk_config_serde() {
-        let nc = NextcloudTalkConfig {
-            base_url: "https://cloud.example.com".into(),
-            app_token: "app-token".into(),
-            webhook_secret: Some("webhook-secret".into()),
-            allowed_users: vec!["user_a".into(), "*".into()],
-        };
-
-        let json = serde_json::to_string(&nc).unwrap();
-        let parsed: NextcloudTalkConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.base_url, "https://cloud.example.com");
-        assert_eq!(parsed.app_token, "app-token");
-        assert_eq!(parsed.webhook_secret.as_deref(), Some("webhook-secret"));
-        assert_eq!(parsed.allowed_users, vec!["user_a", "*"]);
-    }
-
-    #[test]
-    async fn nextcloud_talk_config_defaults_optional_fields() {
-        let json = r#"{"base_url":"https://cloud.example.com","app_token":"app-token"}"#;
-        let parsed: NextcloudTalkConfig = serde_json::from_str(json).unwrap();
-        assert!(parsed.webhook_secret.is_none());
-        assert!(parsed.allowed_users.is_empty());
-    }
-
     // ── Config file permission hardening (Unix only) ───────────────
 
     #[cfg(unix)]
@@ -7070,5 +5565,86 @@ require_otp_to_resume = true
             .validate()
             .expect_err("expected ttl validation failure");
         assert!(err.to_string().contains("token_ttl_secs"));
+    }
+
+    // ── Channel environment variable overrides ────────────────
+
+    #[test]
+    async fn env_override_discord_token() {
+        let _env_guard = env_override_lock().await;
+        let mut config = Config::default();
+        assert!(config.channels_config.discord.is_none());
+
+        std::env::set_var("DISCORD_TOKEN", "test-discord-token-12345");
+        config.apply_env_overrides();
+
+        assert!(config.channels_config.discord.is_some());
+        let discord_config = config.channels_config.discord.as_ref().unwrap();
+        assert_eq!(discord_config.bot_token, "test-discord-token-12345");
+        assert_eq!(discord_config.allowed_users, vec!["*"]);
+        assert!(!discord_config.listen_to_bots);
+        assert!(!discord_config.mention_only);
+
+        std::env::remove_var("DISCORD_TOKEN");
+    }
+
+    #[test]
+    async fn env_override_telegram_bot_token() {
+        let _env_guard = env_override_lock().await;
+        let mut config = Config::default();
+        assert!(config.channels_config.telegram.is_none());
+
+        std::env::set_var("TELEGRAM_BOT_TOKEN", "test-telegram-token-67890");
+        config.apply_env_overrides();
+
+        assert!(config.channels_config.telegram.is_some());
+        let telegram_config = config.channels_config.telegram.as_ref().unwrap();
+        assert_eq!(telegram_config.bot_token, "test-telegram-token-67890");
+        assert_eq!(telegram_config.allowed_users, vec!["*"]);
+        assert!(!telegram_config.mention_only);
+
+        std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    }
+
+    #[test]
+    async fn env_override_both_channel_tokens() {
+        let _env_guard = env_override_lock().await;
+        let mut config = Config::default();
+        assert!(config.channels_config.discord.is_none());
+        assert!(config.channels_config.telegram.is_none());
+
+        std::env::set_var("DISCORD_TOKEN", "discord-token");
+        std::env::set_var("TELEGRAM_BOT_TOKEN", "telegram-token");
+        config.apply_env_overrides();
+
+        assert!(config.channels_config.discord.is_some());
+        assert!(config.channels_config.telegram.is_some());
+        assert_eq!(
+            config.channels_config.discord.as_ref().unwrap().bot_token,
+            "discord-token"
+        );
+        assert_eq!(
+            config.channels_config.telegram.as_ref().unwrap().bot_token,
+            "telegram-token"
+        );
+
+        std::env::remove_var("DISCORD_TOKEN");
+        std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    }
+
+    #[test]
+    async fn env_override_empty_channel_tokens_are_ignored() {
+        let _env_guard = env_override_lock().await;
+        let mut config = Config::default();
+
+        std::env::set_var("DISCORD_TOKEN", "");
+        std::env::set_var("TELEGRAM_BOT_TOKEN", "   ");
+        config.apply_env_overrides();
+
+        assert!(config.channels_config.discord.is_none());
+        assert!(config.channels_config.telegram.is_none());
+
+        std::env::remove_var("DISCORD_TOKEN");
+        std::env::remove_var("TELEGRAM_BOT_TOKEN");
     }
 }

@@ -52,18 +52,14 @@ mod agent;
 mod approval;
 mod auth;
 mod channels;
-mod commands;
 mod diagnostic;
-mod rag {
-    pub use zeroclaw::rag::*;
-}
+mod rag;
 mod config;
 mod cost;
 mod cron;
 mod daemon;
 mod doctor;
 mod gateway;
-mod hardware;
 mod health;
 mod heartbeat;
 mod hooks;
@@ -74,7 +70,6 @@ mod migration;
 mod multimodal;
 mod observability;
 mod onboard;
-mod peripherals;
 mod providers;
 mod runtime;
 mod security;
@@ -88,9 +83,9 @@ mod util;
 use config::Config;
 
 // Re-export so binary modules can use crate::<CommandEnum> while keeping a single source of truth.
-pub use zeroclaw::{
-    ChannelCommands, CronCommands, HardwareCommands, IntegrationCommands, MigrateCommands,
-    PeripheralCommands, ServiceCommands, SkillCommands,
+pub use zeroclawlabs::{
+    ChannelCommands, CronCommands, IntegrationCommands, MigrateCommands,
+    ServiceCommands, SkillCommands,
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
@@ -384,42 +379,6 @@ Enumerate connected USB devices, identify known development boards \
 probe-rs / ST-Link.
 
 Examples:
-  zeroclaw hardware discover
-  zeroclaw hardware introspect /dev/ttyACM0
-  zeroclaw hardware info --chip STM32F401RETx")]
-    Hardware {
-        #[command(subcommand)]
-        hardware_command: zeroclaw::HardwareCommands,
-    },
-
-    /// Manage hardware peripherals (STM32, RPi GPIO, etc.)
-    #[command(long_about = "\
-Manage hardware peripherals.
-
-Add, list, flash, and configure hardware boards that expose tools \
-to the agent (GPIO, sensors, actuators). Supported boards: \
-nucleo-f401re, rpi-gpio, esp32, arduino-uno.
-
-Examples:
-  zeroclaw peripheral list
-  zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-  zeroclaw peripheral add rpi-gpio native
-  zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-  zeroclaw peripheral flash-nucleo")]
-    Peripheral {
-        #[command(subcommand)]
-        peripheral_command: zeroclaw::PeripheralCommands,
-    },
-
-    /// Manage agent memory (list, get, stats, clear)
-    #[command(long_about = "\
-Manage agent memory entries.
-
-List, inspect, and clear memory entries stored by the agent. \
-Supports filtering by category and session, pagination, and \
-batch clearing with confirmation.
-
-Examples:
   zeroclaw memory stats
   zeroclaw memory list
   zeroclaw memory list --category core --limit 10
@@ -456,24 +415,6 @@ Examples:
   source <(zeroclaw completions bash)
   zeroclaw completions zsh > ~/.zfunc/_zeroclaw
   zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish")]
-    /// Manage API quota and usage limits
-    Quota {
-        #[command(subcommand)]
-        quota_command: commands::QuotaCommand,
-    },
-
-    /// Run and compare benchmarks
-    Benchmark {
-        #[command(subcommand)]
-        benchmark_command: commands::BenchmarkCommand,
-    },
-
-    /// View usage metrics and analytics
-    Metrics {
-        #[command(flatten)]
-        metrics_command: commands::MetricsCommand,
-    },
-
     Completions {
         /// Target shell
         #[arg(value_enum)]
@@ -778,7 +719,7 @@ async fn main() -> Result<()> {
         }?;
         // Auto-start channels if user said yes during wizard
         if std::env::var("ZEROCLAW_AUTOSTART_CHANNELS").as_deref() == Ok("1") {
-            channels::start_channels(config).await?;
+            channels::start_channels(config.clone()).await?;
         }
         return Ok(());
     }
@@ -1032,9 +973,12 @@ async fn main() -> Result<()> {
         },
 
         Commands::Channel { channel_command } => match channel_command {
-            ChannelCommands::Start => channels::start_channels(config).await,
-            ChannelCommands::Doctor => channels::doctor_channels(config).await,
-            other => channels::handle_command(other, &config).await,
+            ChannelCommands::Start => channels::start_channels(config.clone()).await.map(|_| ()),
+            ChannelCommands::Doctor => channels::doctor_channels(config.clone()).await,
+            other => {
+                let _result = channels::handle_command(other.clone(), &config).await;
+                Ok(())
+            }
         },
 
         Commands::Integrations {
@@ -1053,14 +997,6 @@ async fn main() -> Result<()> {
 
         Commands::Auth { auth_command } => handle_auth_command(auth_command, &config).await,
 
-        Commands::Hardware { hardware_command } => {
-            hardware::handle_command(hardware_command.clone(), &config)
-        }
-
-        Commands::Peripheral { peripheral_command } => {
-            peripherals::handle_command(peripheral_command.clone(), &config).await
-        }
-
         Commands::Config { config_command } => match config_command {
             ConfigCommands::Schema => {
                 let schema = schemars::schema_for!(config::Config);
@@ -1071,18 +1007,6 @@ async fn main() -> Result<()> {
                 Ok(())
             }
         },
-
-        Commands::Quota { quota_command } => {
-            commands::handle_quota(quota_command).await
-        }
-
-        Commands::Benchmark { benchmark_command } => {
-            commands::handle_benchmark(benchmark_command).await
-        }
-
-        Commands::Metrics { metrics_command } => {
-            commands::handle_metrics(metrics_command).await
-        }
     }
 }
 
@@ -1920,7 +1844,7 @@ async fn run_test_mode() -> Result<()> {
                     diagnostic::DiagnosticStatus::Warn => "⚠",
                     diagnostic::DiagnosticStatus::Skip => "⊘",
                 };
-                println!("{} {}: {}", status, check.name, check.message.as_deref().unwrap_or(""));
+                println!("{} {}: {}", status, check.name, check.message.as_deref().unwrap_or(&"".to_string()));
                 if check.status == diagnostic::DiagnosticStatus::Fail {
                     all_passed = false;
                 }
