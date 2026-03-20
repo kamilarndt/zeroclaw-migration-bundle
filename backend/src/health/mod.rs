@@ -2,8 +2,116 @@ use chrono::Utc;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::fs;
 use std::sync::OnceLock;
 use std::time::Instant;
+
+/// System metrics from /proc (lightweight, no external dependencies)
+#[derive(Debug, Clone, Serialize)]
+pub struct SystemMetrics {
+    pub timestamp: String,
+    pub cpu_percent: f64,
+    pub memory_mb: u64,
+    pub memory_total_mb: u64,
+    pub memory_percent: f64,
+    pub load_1m: f64,
+    pub load_5m: f64,
+    pub load_15m: f64,
+}
+
+/// Read /proc/meminfo to get memory usage
+fn read_proc_meminfo() -> Result<(u64, u64), std::io::Error> {
+    let content = fs::read_to_string("/proc/meminfo")?;
+    let mut mem_total = 0u64;
+    let mut mem_available = 0u64;
+
+    for line in content.lines() {
+        if line.starts_with("MemTotal:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            mem_total = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+        } else if line.starts_with("MemAvailable:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            mem_available = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+        }
+    }
+
+    // If MemAvailable not available (older kernels), estimate from MemFree
+    if mem_available == 0 {
+        for line in content.lines() {
+            if line.starts_with("MemFree:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                mem_available = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                break;
+            }
+        }
+    }
+
+    let used = mem_total.saturating_sub(mem_available);
+    Ok((used, mem_total))
+}
+
+/// Read /proc/loadavg to get system load
+fn read_proc_loadavg() -> Result<(f64, f64, f64), std::io::Error> {
+    let content = fs::read_to_string("/proc/loadavg")?;
+    let parts: Vec<&str> = content.split_whitespace().collect();
+
+    let load_1m = parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(0.0);
+    let load_5m = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0.0);
+    let load_15m = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0.0);
+
+    Ok((load_1m, load_5m, load_15m))
+}
+
+/// Read /proc/stat to calculate CPU usage (simplified)
+fn read_proc_stat_cpu() -> Result<f64, std::io::Error> {
+    let content = fs::read_to_string("/proc/stat")?;
+    let first_line = content.lines().next().unwrap_or("");
+
+    // Format: cpu user nice system idle iowait irq softirq
+    let parts: Vec<&str> = first_line.split_whitespace().collect();
+    if parts.len() < 8 {
+        return Ok(0.0);
+    }
+
+    let user: u64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let nice: u64 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let system: u64 = parts.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let idle: u64 = parts.get(4).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    let total = user + nice + system + idle;
+    if total == 0 {
+        return Ok(0.0);
+    }
+
+    let used = user + nice + system;
+    let cpu_percent = (used as f64 / total as f64) * 100.0;
+
+    Ok(cpu_percent)
+}
+
+/// Get current system metrics from /proc (lightweight, no dependencies)
+pub fn get_system_metrics() -> SystemMetrics {
+    let (mem_used, mem_total) = read_proc_meminfo().unwrap_or((0, 0));
+    let (load_1m, load_5m, load_15m) = read_proc_loadavg().unwrap_or((0.0, 0.0, 0.0));
+    let cpu_percent = read_proc_stat_cpu().unwrap_or(0.0);
+
+    let memory_percent = if mem_total > 0 {
+        (mem_used as f64 / mem_total as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    SystemMetrics {
+        timestamp: now_rfc3339(),
+        cpu_percent,
+        memory_mb: mem_used / 1024, // Convert KB to MB
+        memory_total_mb: mem_total / 1024,
+        memory_percent,
+        load_1m,
+        load_5m,
+        load_15m,
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ComponentHealth {
@@ -165,6 +273,17 @@ mod tests {
             .expect("component should exist after restart bump");
 
         assert_eq!(entry.restart_count, 2);
+    }
+
+    #[test]
+    fn get_system_metrics_returns_valid_data() {
+        let metrics = get_system_metrics();
+
+        assert!(metrics.cpu_percent >= 0.0 && metrics.cpu_percent <= 100.0);
+        assert!(metrics.memory_mb > 0);
+        assert!(metrics.memory_total_mb > 0);
+        assert!(metrics.memory_percent >= 0.0 && metrics.memory_percent <= 100.0);
+        assert!(metrics.load_1m >= 0.0);
     }
 
     #[test]
