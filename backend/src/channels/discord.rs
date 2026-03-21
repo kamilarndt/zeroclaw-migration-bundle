@@ -240,6 +240,14 @@ async fn send_discord_message_json(
     let url = format!("https://discord.com/api/v10/channels/{recipient}/messages");
     let body = json!({ "content": content });
 
+    // DEBUG: Log what's being sent to Discord API
+    tracing::info!(
+        content_preview = content.chars().take(500).collect::<String>(),
+        content_len = content.len(),
+        has_newlines = content.contains('\n'),
+        "discord: sending to API"
+    );
+
     let resp = client
         .post(&url)
         .header("Authorization", format!("Bot {bot_token}"))
@@ -487,20 +495,21 @@ impl Channel for DiscordChannel {
     }
 
     async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
-        // Strip tool call tags and normalize Markdown formatting
         let raw_content = crate::channels::telegram::strip_tool_call_tags(&message.content);
-        let formatted_content = normalize_markdown(&raw_content);
 
-        // Debug log - compare raw vs formatted
-        tracing::debug!(
-            raw_len = raw_content.len(),
-            formatted_len = formatted_content.len(),
-            newlines_in_raw = raw_content.matches('\n').count(),
-            newlines_in_formatted = formatted_content.matches('\n').count(),
-            "discord: markdown formatting applied"
+        // Normalize markdown for Discord (fix GLM-4.7 single-line output)
+        let normalized_content = normalize_markdown(&raw_content);
+
+        // DEBUG: Log normalized content
+        tracing::info!(
+            raw_preview = raw_content.chars().take(200).collect::<String>(),
+            normalized_preview = normalized_content.chars().take(200).collect::<String>(),
+            raw_newlines = raw_content.matches('\n').count(),
+            normalized_newlines = normalized_content.matches('\n').count(),
+            "discord: content normalized"
         );
 
-        let (cleaned_content, parsed_attachments) = parse_attachment_markers(&formatted_content);
+        let (cleaned_content, parsed_attachments) = parse_attachment_markers(&normalized_content);
         let (mut local_files, remote_urls, unresolved_markers) =
             classify_outgoing_attachments(&parsed_attachments);
 
