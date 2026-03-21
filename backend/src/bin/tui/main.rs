@@ -122,7 +122,19 @@ async fn async_main() -> anyhow::Result<()> {
     let zeroclaw_client = if demo_mode {
         None
     } else {
-        Some(ZeroClawClient::localhost())
+        let client = ZeroClawClient::localhost();
+
+        // Test connection before starting
+        if let Err(e) = client.test_connection().await {
+            disable_raw_mode()?;
+            eprintln!("❌ Cannot connect to ZeroClaw Gateway: {}", e);
+            eprintln!("   Port: 42517");
+            eprintln!("   Fix: zeroclaw status");
+            eprintln!("   Or: export ZEROCLAW_GATEWAY_PORT=42517");
+            std::process::exit(1);
+        }
+
+        Some(client)
     };
 
     // Spawn background status refresh task
